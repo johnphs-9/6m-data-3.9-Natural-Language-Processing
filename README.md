@@ -32,7 +32,7 @@ No laptop GPU or local install needed — these notebooks run on Colab's free CP
 
 | Notebook | Open |
 |---|---|
-| 01 · Monday morning (pre-class) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/01_monday_morning.ipynb) |
+| 01 · Morning briefing (pre-class) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/01_morning_briefing.ipynb) |
 | 02 · Words to vectors | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/02_words_to_vectors.ipynb) |
 | 03 · Pretrained embeddings | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/03_pretrained_embeddings.ipynb) |
 | 04 · Semantic search engine | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/04_semantic_search.ipynb) |
@@ -47,7 +47,7 @@ No laptop GPU or local install needed — these notebooks run on Colab's free CP
 - Read [pre-class.md](pre-class.md)
 - Watch the linked Jay Alammar embeddings primer
 - Explore the [**interactive key-concepts page**](https://su-ntu-ctp.github.io/6m-data-3.9-Natural-Language-Processing/) after the videos (GitHub Pages)
-- Run [notebooks/01_monday_morning.ipynb](notebooks/01_monday_morning.ipynb) — feel the keyword-search failure mode firsthand
+- Run [notebooks/01_morning_briefing.ipynb](notebooks/01_morning_briefing.ipynb) — feel the keyword-search failure mode firsthand
 
 ## Phase 2 — In-class (≈ 45–60 min slide recap + 90 min code-along + 15 min exit survey)
 

@@ -7,7 +7,7 @@ This is the simplest version of "show up prepared": watch a short intro, run one
 | Step | Time | What you do |
 |---|---|---|
 | **0. Watch** | ~5 min  | Watch the [lesson intro video](https://youtu.be/uworo8tadFQ) |
-| **1. Try it** | ~20 min | Open and run `notebooks/01_monday_morning.ipynb` |
+| **1. Try it** | ~20 min | Open and run `notebooks/01_morning_briefing.ipynb` |
 | **2. Reflect** | ~5 min  | Three short questions below |
 
 ---
@@ -24,7 +24,7 @@ A short orientation to the day: why keyword search fails on real catalogues, and
 
 ## Step 1 — Try it (~20 min)
 
-Open **`notebooks/01_monday_morning.ipynb`** in VS Code with the `dsai-m3` kernel. Run every cell top to bottom. Read the markdown between cells. Don't skip any cell.
+Open **`notebooks/01_morning_briefing.ipynb`** in VS Code with the `dsai-m3` kernel. Run every cell top to bottom. Read the markdown between cells. Don't skip any cell.
 
 A customer types *"blue summer dress"* into NorthStar's search bar. We have ten dresses that fit — none of them came up. The notebook walks Sarah through keyword search, watches it fail on synonyms (*frock* ≠ *dress*), and motivates the embedding-based fix you'll see in class.
 

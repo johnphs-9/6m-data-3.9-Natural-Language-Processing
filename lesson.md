@@ -1,7 +1,7 @@
 # Lesson — L09 NLP, Embeddings & Semantic Search
 
 > **Chapter 9 of the NorthStar Retail story.** *Sarah Chen · Customer Experience Analyst · Day 10.*
-> The L08 auto-tagger shipped on Friday. Monday morning, an angry email lands: a shopper typed *"blue summer dress"* into NorthStar's search bar. The catalogue has ten dresses that fit. None came up — the descriptions say *frock*, *sundress*, *gown*. Keyword search breaks on synonyms.
+> The L08 auto-tagger shipped yesterday. This morning, an angry email lands: a shopper typed *"blue summer dress"* into NorthStar's search bar. The catalogue has ten dresses that fit. None came up — the descriptions say *frock*, *sundress*, *gown*. Keyword search breaks on synonyms.
 > This lesson is how Sarah replaces it.
 
 This document is a **short reference** — the lesson itself is taught in the notebooks. Read it for orientation before class, then come back to it for the takeaways, the validation checklist, the review questions, and the course map.
@@ -12,7 +12,7 @@ This document is a **short reference** — the lesson itself is taught in the no
 
 | Stage | Where to go |
 |---|---|
-| **Pre-class** | `pre-class.md` + `notebooks/01_monday_morning.ipynb` |
+| **Pre-class** | `pre-class.md` + `notebooks/01_morning_briefing.ipynb` |
 | **In-class — Part 1: Words as vectors** | `notebooks/02_words_to_vectors.ipynb` |
 | **In-class — Part 2: Pretrained sentence embeddings** | `notebooks/03_pretrained_embeddings.ipynb` |
 | **In-class — Part 3: Semantic search engine** | `notebooks/04_semantic_search.ipynb` |
@@ -25,7 +25,7 @@ The notebooks are the spine. Run them in order. Come back here for the consolida
 
 ## Overview
 
-NorthStar's keyword search misses three of ten relevant dresses for the query *"blue summer dress"* — the descriptions use *frock*, *gown*, *sundress* instead, and no amount of stemming or stop-word stripping closes that gap because **the problem is semantic, not lexical**. By Friday Sarah will hold three new tools: a built-from-scratch understanding of **why one-hot and bag-of-words representations cannot express meaning**, hands-on use of **pretrained sentence-transformers** (`all-MiniLM-L6-v2`) that map text to 384-dim vectors where geometry encodes meaning, and a working **top-K semantic search engine** benchmarked head-to-head against TF-IDF on a labelled query set. The same retrieval pattern returns in L10 as the *R* in RAG.
+NorthStar's keyword search misses three of ten relevant dresses for the query *"blue summer dress"* — the descriptions use *frock*, *gown*, *sundress* instead, and no amount of stemming or stop-word stripping closes that gap because **the problem is semantic, not lexical**. By the end of the day Sarah will hold three new tools: a built-from-scratch understanding of **why one-hot and bag-of-words representations cannot express meaning**, hands-on use of **pretrained sentence-transformers** (`all-MiniLM-L6-v2`) that map text to 384-dim vectors where geometry encodes meaning, and a working **top-K semantic search engine** benchmarked head-to-head against TF-IDF on a labelled query set. The same retrieval pattern returns in L10 as the *R* in RAG.
 
 ---
 
@@ -118,7 +118,7 @@ Work through these after finishing the three Part notebooks. Attempt each questi
 
 > **Sample answer:** TF-IDF wins on exact-token queries: product codes ("P0042"), brand names, SKUs, exact product titles ("Marina Wrap Dress"). The literal-token match is precisely what TF-IDF is built for. TF-IDF loses on synonym-heavy or paraphrased queries ("warm winter jumper" when the catalogue calls it a *cable knit pullover*, or "blue summer dress" when descriptions say *frock*), because it has no notion that those tokens refer to the same thing. Production search uses both and merges the candidate lists.
 
-**Q7 — Stale embeddings.** A merchandiser rewrites the description of three products on Wednesday afternoon. What goes wrong if you do nothing, and what is the standard fix?
+**Q7 — Stale embeddings.** A merchandiser rewrites the description of three products this afternoon. What goes wrong if you do nothing, and what is the standard fix?
 
 > **Sample answer:** The cached embeddings for those three products were computed from the *old* description text; until you re-encode them, semantic search ranks them against query embeddings using a representation that no longer matches what's on the product page. Customers can search using language from the new description and never find the product, or worse, find it for the wrong reasons. The standard fix is a nightly re-embedding job that re-encodes any product whose `updated_at` timestamp changed in the last 24 hours, plus a small near-real-time job for newly added products.
 
@@ -134,6 +134,6 @@ L09 is the last "build a focused ML system" lesson — L10 opens the black box o
 
 ---
 
-> *"OK, the search engine works. But how does that little model actually understand that *frock* and *dress* are similar? And can we use the same kind of model to build a chat assistant that answers customer questions about our products?"* — Marcus, after Sarah's Friday demo.
+> *"OK, the search engine works. But how does that little model actually understand that *frock* and *dress* are similar? And can we use the same kind of model to build a chat assistant that answers customer questions about our products?"* — Marcus, after Sarah's end-of-day demo.
 >
 > Those questions — *what's inside the embedding model?* and *how do we build a chat assistant on top of it?* — are the engine of **L10 (Transformers & GenAI)**.
