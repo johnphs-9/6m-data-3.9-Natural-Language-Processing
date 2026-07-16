@@ -16,7 +16,7 @@ This is the simplest version of "show up prepared": watch a short intro, run one
 
 ▶️ **[L09 The Geometry of Meaning](https://youtu.be/uworo8tadFQ)**
 
-A short orientation to the week: why keyword search fails on real catalogues, and how embeddings let Sarah build meaning-based search. Watch it before opening the notebook.
+A short orientation to the day: why keyword search fails on real catalogues, and how embeddings let Sarah build meaning-based search. Watch it before opening the notebook.
 
 🕹️ **After the video:** open the [interactive key-concepts page](https://su-ntu-ctp.github.io/6m-data-3.9-Natural-Language-Processing/) and play with it for 10–15 minutes. Drag the sliders, click the buttons — you can't break anything. Arriving in class having *seen* these ideas move makes the session far easier.
 

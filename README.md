@@ -4,7 +4,7 @@
 
 ## The story so far
 
-Sarah's catalogue auto-tagger from L08 is in production. Merchandisers are confirming the top-3 predictions, the data pipeline is collecting corrections, and the model is improving week over week. Marcus is happy.
+Sarah's catalogue auto-tagger from L08 is in production. Merchandisers are confirming the top-3 predictions, the data pipeline is collecting corrections, and the model is improving day by day. Marcus is happy.
 
 Then a complaint lands in his inbox from the customer-experience team:
 

@@ -1,6 +1,6 @@
 # Lesson — L09 NLP, Embeddings & Semantic Search
 
-> **Chapter 9 of the NorthStar Retail story.** *Sarah Chen · Customer Experience Analyst · Week 10.*
+> **Chapter 9 of the NorthStar Retail story.** *Sarah Chen · Customer Experience Analyst · Day 10.*
 > The L08 auto-tagger shipped on Friday. Monday morning, an angry email lands: a shopper typed *"blue summer dress"* into NorthStar's search bar. The catalogue has ten dresses that fit. None came up — the descriptions say *frock*, *sundress*, *gown*. Keyword search breaks on synonyms.
 > This lesson is how Sarah replaces it.
 
