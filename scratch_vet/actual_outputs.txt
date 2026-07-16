@@ -1,0 +1,635 @@
+
+############################################################
+# notebooks/01_monday_morning.ipynb
+############################################################
+
+----- cell 3 output -----
+Products in catalogue: 76
+Categories: ['dress', 'shirt', 'trouser', 'coat', 'knit', 'footwear', 'accessory', 'activewear', 'home', 'kids']
+
+First three rows:
+  product_id                  name category  \
+0      P0001  Lila Floral Sundress    dress   
+1      P0002     Marina Wrap Dress    dress   
+2      P0003      Cassia Maxi Gown    dress   
+
+                                         description  price_gbp  
+0  Lightweight floral frock perfect for warm summ...         49  
+1  Elegant wrap-style dress in deep navy. Suitabl...         89  
+2  Flowing full-length gown with adjustable strap...         65
+
+----- cell 5 output -----
+We have 10 dresses.
+
+  [P0001]  Lila Floral Sundress
+     Lightweight floral frock perfect for warm summer days. Tea-length, pastel print, breathable cotton.
+
+  [P0002]  Marina Wrap Dress
+     Elegant wrap-style dress in deep navy. Suitable for office or evening occasions.
+
+  [P0003]  Cassia Maxi Gown
+     Flowing full-length gown with adjustable straps. Beach holiday essential.
+
+  [P0004]  Holly Knit Jumper Dress
+     Cosy ribbed knit dress in oatmeal. Perfect winter layer with thick tights.
+
+  [P0005]  Ivy Slip Dress
+     Minimalist satin slip in champagne. Layer over a tee or wear alone for evenings.
+
+  [P0006]  Bea Tea-Length Frock
+     Vintage-inspired knee-length number in dusty rose. Spring wedding-guest favourite.
+
+  [P0007]  Sienna Bodycon Dress
+     Fitted stretch jersey in midnight black. Goes from desk to drinks effortlessly.
+
+  [P0008]  Aurora Pleated Midi
+     Romantic pleated midi in soft lavender. Twirl-friendly and waist-defining.
+
+  [P0009]  Petal Smock Dress
+     Relaxed loose-fit smock with floral embroidery. Comfortable everyday wear.
+
+  [P0010]  Marigold Shift Dress
+     Sleeveless A-line shift in sunshine yellow. Bold colour for the brave.
+
+----- cell 8 output -----
+Query: 'blue summer dress'
+
+product_id category                    name  score
+     P0001    dress    Lila Floral Sundress      1
+     P0004    dress Holly Knit Jumper Dress      1
+     P0005    dress          Ivy Slip Dress      1
+     P0007    dress    Sienna Bodycon Dress      1
+     P0002    dress       Marina Wrap Dress      1
+     P0009    dress       Petal Smock Dress      1
+     P0010    dress    Marigold Shift Dress      1
+     P0047 footwear Sand Espadrille Sandals      1
+     P0037     knit    Cobalt V-Neck Jumper      1
+     P0014    shirt       Frost Linen Shirt      1
+
+----- cell 11 output -----
+3 of 10 dresses got ZERO keyword overlap with 'blue summer dress':
+
+  [P0003]  Cassia Maxi Gown
+     description: Flowing full-length gown with adjustable straps. Beach holiday essential.
+     description uses these instead of 'dress': gown
+
+  [P0006]  Bea Tea-Length Frock
+     description: Vintage-inspired knee-length number in dusty rose. Spring wedding-guest favourite.
+     description uses these instead of 'dress': (no obvious synonyms)
+
+  [P0008]  Aurora Pleated Midi
+     description: Romantic pleated midi in soft lavender. Twirl-friendly and waist-defining.
+     description uses these instead of 'dress': (no obvious synonyms)
+
+----- cell 14 output -----
+v2 search (stemming + stop-words):
+
+product_id category                    name  score
+     P0001    dress    Lila Floral Sundress      1
+     P0004    dress Holly Knit Jumper Dress      1
+     P0005    dress          Ivy Slip Dress      1
+     P0007    dress    Sienna Bodycon Dress      1
+     P0002    dress       Marina Wrap Dress      1
+     P0009    dress       Petal Smock Dress      1
+     P0010    dress    Marigold Shift Dress      1
+     P0047 footwear Sand Espadrille Sandals      1
+     P0037     knit    Cobalt V-Neck Jumper      1
+     P0014    shirt       Frost Linen Shirt      1
+
+----- cell 17 output -----
+Query                          Top-1 match                                    Score
+-------------------------------------------------------------------------------------
+blue summer dress              Lila Floral Sundress                               1
+warm winter jumper             Holly Knit Jumper Dress                            2
+smart office shoes             Cloud Running Trainers                             1
+lightweight rain jacket        Ember Quilted Jacket                               2
+cosy throw for sofa            Wool Throw Blanket                                 2
+gym leggings                   Storm Yoga Leggings                                1
+beach holiday outfit           Cassia Maxi Gown                                   2
+running trainers               Cloud Running Trainers                             2
+
+----- cell 20 output -----
+Saved ground-truth queries to ground_truth.json
+  ✅  'blue summer dress'            got: 'Lila Floral Sundress'
+  ❌  'warm winter jumper'           got: 'Holly Knit Jumper Dress'
+  ❌  'smart office shoes'           got: 'Cloud Running Trainers'
+  ❌  'lightweight rain jacket'      got: 'Ember Quilted Jacket'
+  ✅  'cosy throw for sofa'          got: 'Wool Throw Blanket'
+  ✅  'gym leggings'                 got: 'Storm Yoga Leggings'
+  ✅  'beach holiday outfit'         got: 'Cassia Maxi Gown'
+  ✅  'running trainers'             got: 'Cloud Running Trainers'
+
+Keyword search top-1 accuracy: 5/8 = 62%
+
+############################################################
+# notebooks/02_words_to_vectors.ipynb
+############################################################
+
+----- cell 3 output -----
+Catalogue: 76 products
+
+----- cell 5 output -----
+Vocabulary size: 552
+  'frock'      -> vector of (552,), sum=1, nonzero at index 188
+  'dress'      -> vector of (552,), sum=1, nonzero at index 140
+  'gown'       -> vector of (552,), sum=1, nonzero at index 197
+  'sundress'   -> vector of (552,), sum=1, nonzero at index 462
+  'spaceship'  -> vector of (552,), sum=0, nonzero at index NONE
+
+----- cell 7 output -----
+  cosine('frock', 'dress') = 0.000
+  cosine('frock', 'gown') = 0.000
+  cosine('frock', 'spaceship') = 0.000
+  cosine('dress', 'dress') = 1.000
+
+----- cell 10 output -----
+Bag-of-words matrix shape: (76, 552)  (products × vocab)
+Density: 2.11% (most entries are zero — this is a SPARSE representation)
+
+----- cell 12 output -----
+Query: 'blue summer dress'
+
+product_id category                    name    score
+     P0002    dress       Marina Wrap Dress 0.258199
+     P0004    dress Holly Knit Jumper Dress 0.258199
+     P0047 footwear Sand Espadrille Sandals 0.154303
+     P0014    shirt       Frost Linen Shirt 0.154303
+     P0007    dress    Sienna Bodycon Dress 0.149071
+
+----- cell 15 output -----
+Co-occurrence matrix shape: (552, 552)
+Density: 2.03%
+
+----- cell 18 output -----
+pair                             cosine
+------------------------------------------
+  'frock'        'dress'          0.035
+  'frock'        'gown'           0.158
+  'dress'        'sundress'       0.054
+  'frock'        'leather'        0.000
+  'frock'        'trainers'       0.071
+  'cotton'       'linen'          0.378
+  'cotton'       'rubber'         0.239
+
+----- cell 21 output -----
+<Figure size 1000x700 with 1 Axes>
+
+----- cell 26 output -----
+  cosine('boots'   , 'trainers') = 0.131
+  cosine('boots'   , 'sandals' ) = 0.269
+  cosine('cotton'  , 'wool'    ) = 0.147
+  cosine('summer'  , 'winter'  ) = 0.188
+  cosine('cosy'    , 'warm'    ) = 0.000
+
+----- cell 29 output -----
+Dense embedding shape: (552, 50)  (vocab × 50)
+Variance explained by top 50 components: 74.30%
+
+50-dim dense vectors:
+  cosine('frock'   , 'dress'   ) = 0.036
+  cosine('frock'   , 'gown'    ) = 0.229
+  cosine('cotton'  , 'linen'   ) = 0.402
+  cosine('frock'   , 'trainers') = 0.110
+
+############################################################
+# notebooks/03_pretrained_embeddings.ipynb
+############################################################
+
+----- cell 3 output -----
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Model           : all-MiniLM-L6-v2
+Parameters      : 22,713,216
+Embedding dim   : 384
+/var/folders/1k/fkjmrdr52nz318jtd23s4yzw0000gn/T/ipykernel_23692/1290136908.py:30: FutureWarning: The `get_sentence_embedding_dimension` method has been renamed to `get_embedding_dimension`.
+  print(f"Embedding dim   : {model.get_sentence_embedding_dimension()}")
+
+----- cell 6 output -----
+Output shape: (4, 384)
+Each row is a 384-dim vector.
+
+First sentence first 8 dims: [-0.09414876  0.03705965  0.06258423  0.04386491  0.03450783  0.01671423
+  0.09338306 -0.07202805]
+L2 norm: 1.000  (normalised by default)
+
+----- cell 9 output -----
+A                                                  B                                                     cos
+----------------------------------------------------------------------------------------------------------------
+  blue summer dress                                  lightweight floral frock perfect for warm summer    0.408
+  frock                                              dress                                               0.249
+  frock                                              gown                                                0.288
+  sundress                                           dress                                               0.509
+  dress                                              trainers                                            0.241
+  dress                                              spaceship                                           0.257
+  comfortable office shoes                           leather ankle boots for work                        0.558
+  warm winter coat                                   chunky cable knit jumper                            0.142
+
+----- cell 12 output -----
+Embedding 76 product documents...
+Done in 0.17s (455 products/second)
+Embeddings shape: (76, 384)
+Saved catalogue_embeddings.npy
+
+----- cell 15 output -----
+Query: 'blue summer dress'
+
+product_id  category                    name    score
+     P0014     shirt       Frost Linen Shirt 0.547784
+     P0010     dress    Marigold Shift Dress 0.540338
+     P0001     dress    Lila Floral Sundress 0.467017
+     P0004     dress Holly Knit Jumper Dress 0.466092
+     P0019     shirt       Indigo Polo Shirt 0.460361
+     P0007     dress    Sienna Bodycon Dress 0.447115
+     P0056 accessory  Heather Cashmere Scarf 0.442999
+     P0003     dress        Cassia Maxi Gown 0.430717
+     P0005     dress          Ivy Slip Dress 0.404895
+     P0002     dress       Marina Wrap Dress 0.403601
+
+----- cell 18 output -----
+Query                          Top-1 prediction                              Expected                           
+-------------------------------------------------------------------------------------------------------------------
+  ❌ blue summer dress            Frost Linen Shirt                             Lila Floral Sundress               
+  ✅ warm winter jumper           Roan Cable Jumper                             Roan Cable Jumper                  
+  ✅ smart office shoes           Loam Ankle Boots                              Loam Ankle Boots                   
+  ❌ lightweight rain jacket      Cinder Biker Jacket                           Trail Windbreaker                  
+  ✅ cosy throw for sofa          Wool Throw Blanket                            Wool Throw Blanket                 
+  ✅ gym leggings                 Storm Yoga Leggings                           Storm Yoga Leggings                
+  ✅ beach holiday outfit         Cassia Maxi Gown                              Cassia Maxi Gown                   
+  ✅ running trainers             Cloud Running Trainers                        Cloud Running Trainers             
+
+Semantic search top-1 accuracy: 6/8 = 75%
+(Keyword baseline from NB 01 was 5/8 = 62%)
+
+----- cell 21 output -----
+<Figure size 1000x700 with 1 Axes>PCA captured 11.3% of variance in 2D.
+
+----- cell 26 output -----
+Embedding 1000 sentences...
+  batch_size=32 : 0.92s  (1090 sentences/sec)
+  batch_size=128: 0.73s  (1364 sentences/sec)
+
+Larger batches usually help on GPU; CPU gains depend on memory bandwidth.
+
+----- cell 28 output -----
+Averaged one-hot vectors — top 5 for blue summer dress:
+  Marina Wrap Dress                        score=0.258
+  Holly Knit Jumper Dress                  score=0.258
+  Frost Linen Shirt                        score=0.154
+  Sand Espadrille Sandals                  score=0.154
+  Sienna Bodycon Dress                     score=0.149
+
+############################################################
+# notebooks/04_semantic_search.ipynb
+############################################################
+
+----- cell 3 output -----
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loaded cached embeddings: (76, 384)
+
+----- cell 5 output -----
+Engine ready.
+
+----- cell 7 output -----
+
+Query: 'blue summer dress'
+category                    name    score
+   shirt       Frost Linen Shirt 0.547784
+   dress    Marigold Shift Dress 0.540338
+   dress    Lila Floral Sundress 0.467017
+   dress Holly Knit Jumper Dress 0.466092
+   shirt       Indigo Polo Shirt 0.460361
+
+Query: 'something cosy to wear hiking'
+category                 name    score
+footwear Boulder Hiking Boots 0.500391
+footwear     Aspen Snow Boots 0.482619
+   shirt   Pine Flannel Shirt 0.464685
+   shirt    Frost Linen Shirt 0.457966
+footwear     Loam Ankle Boots 0.437125
+
+Query: 'business attire for women'
+category                 name    score
+   dress     Cassia Maxi Gown 0.460027
+   dress Sienna Bodycon Dress 0.458183
+    knit Heather Crew Sweater 0.441692
+   shirt Rose Puff Sleeve Top 0.432061
+   shirt     Onyx Silk Blouse 0.417356
+
+----- cell 10 output -----
+Query: 'blue summer dress'   |   filter: category=='dress'
+                   name    score
+   Marigold Shift Dress 0.540338
+   Lila Floral Sundress 0.467017
+Holly Knit Jumper Dress 0.466092
+   Sienna Bodycon Dress 0.447115
+       Cassia Maxi Gown 0.430717
+
+Query: 'lightweight rain jacket'   |   filter: category in ['coat','activewear']
+category                  name    score
+    coat   Cinder Biker Jacket 0.561851
+    coat   Verge Bomber Jacket 0.559493
+    coat  Ember Quilted Jacket 0.531884
+    coat     Tarn Waxed Jacket 0.498808
+    coat Glacier Puffer Jacket 0.453990
+
+----- cell 13 output -----
+TF-IDF vocabulary size: 1271
+TF-IDF matrix shape   : (76, 1271)
+
+----- cell 15 output -----
+Query: 'blue summer dress'
+
+category                    name    score
+   dress Holly Knit Jumper Dress 0.147678
+   dress       Marina Wrap Dress 0.144762
+   shirt       Frost Linen Shirt 0.124843
+    knit    Cobalt V-Neck Jumper 0.122155
+footwear Sand Espadrille Sandals 0.118865
+
+----- cell 18 output -----
+Query                          Semantic top-1                      TF-IDF top-1                         sem@1   tf@1
+------------------------------------------------------------------------------------------------------------------------
+  blue summer dress            Frost Linen Shirt                   Holly Knit Jumper Dress                  ❌      ❌
+  warm winter jumper           Roan Cable Jumper                   Holly Knit Jumper Dress                  ✅      ❌
+  smart office shoes           Loam Ankle Boots                    Cloud Running Trainers                   ✅      ❌
+  lightweight rain jacket      Cinder Biker Jacket                 Ember Quilted Jacket                     ❌      ❌
+  cosy throw for sofa          Wool Throw Blanket                  Wool Throw Blanket                       ✅      ✅
+  gym leggings                 Storm Yoga Leggings                 Storm Yoga Leggings                      ✅      ✅
+  beach holiday outfit         Cassia Maxi Gown                    Cassia Maxi Gown                         ✅      ✅
+  running trainers             Cloud Running Trainers              Cloud Running Trainers                   ✅      ✅
+
+Approach      Top-1  Top-5
+Semantic     6/8    7/8
+TF-IDF       4/8    4/8
+
+----- cell 21 output -----
+Query: 'soft cotton flowy garment with petal patterns'
+  Expected         : Lila Floral Sundress
+  Semantic top-1   : Indigo Polo Shirt  (rank of expected: 19)
+  TF-IDF top-1     : Velvet Cushion Cover  (rank of expected: 17)
+
+Query: 'Marina Wrap Dress'
+  Expected         : Marina Wrap Dress
+  Semantic top-1   : Marina Wrap Dress  (rank of expected: 1)
+  TF-IDF top-1     : Marina Wrap Dress  (rank of expected: 1)
+
+----- cell 24 output -----
+
+                    +-----------------------------+
+                    |   Customer types a query    |
+                    +-------------+---------------+
+                                  |
+                  +---------------+---------------+
+                  |                               |
+        +---------v---------+         +-----------v----------+
+        |  TF-IDF retrieval |         | Semantic retrieval   |
+        | top-50 by TF-IDF  |         |  top-50 by cosine    |
+        +---------+---------+         +-----------+----------+
+                  |                               |
+                  +---------------+---------------+
+                                  |
+                    +-------------v-------------+
+                    | Union → 80-100 candidates |
+                    |  (counts illustrative —    |
+                    |   this demo has 76)        |
+                    +-------------+-------------+
+                                  |
+                    +-------------v-------------+
+                    | Structured filters apply: |
+                    | category / colour / price |
+                    +-------------+-------------+
+                                  |
+                    +-------------v-------------+
+                    | Re-rank by score blend +  |
+                    | popularity + recency      |
+                    +-------------+-------------+
+                                  |
+                    +-------------v-------------+
+                    |   Top-20 to the customer  |
+                    +---------------------------+
+
+----- cell 29 output -----
+
+alpha = 0.0  (0=pure TF-IDF, 1=pure semantic)
+Query: 'blue summer dress'
+                   name    score  sem_score  tf_score
+Holly Knit Jumper Dress 1.000000   0.466092  0.147678
+      Marina Wrap Dress 0.980256   0.403601  0.144762
+      Frost Linen Shirt 0.845372   0.547784  0.124843
+   Cobalt V-Neck Jumper 0.827169   0.401502  0.122155
+Sand Espadrille Sandals 0.804894   0.265828  0.118865
+
+alpha = 0.5  (0=pure TF-IDF, 1=pure semantic)
+Query: 'blue summer dress'
+                   name    score  sem_score  tf_score
+      Frost Linen Shirt 0.922686   0.547784  0.124843
+Holly Knit Jumper Dress 0.916393   0.466092  0.147678
+      Marina Wrap Dress 0.842566   0.403601  0.144762
+   Lila Floral Sundress 0.765718   0.467017  0.102895
+   Cobalt V-Neck Jumper 0.763874   0.401502  0.122155
+
+alpha = 1.0  (0=pure TF-IDF, 1=pure semantic)
+Query: 'blue summer dress'
+                   name    score  sem_score  tf_score
+      Frost Linen Shirt 1.000000   0.547784  0.124843
+   Marigold Shift Dress 0.984759   0.540338  0.076379
+   Lila Floral Sundress 0.834680   0.467017  0.102895
+Holly Knit Jumper Dress 0.832786   0.466092  0.147678
+      Indigo Polo Shirt 0.821056   0.460361  0.000000
+
+----- cell 32 output -----
+Top product-pair similarities (potential duplicates):
+  0.695  Aspen Snow Boots                    <-> Boulder Hiking Boots
+  0.609  Iron Combat Boots                   <-> Loam Ankle Boots
+  0.604  Cycle Bib Shorts                    <-> Drift Running Shorts
+
+############################################################
+# notebooks/assignment.ipynb
+############################################################
+
+----- cell 1 output -----
+Recipes: 30
+Categories: {'pizza': 5, 'pasta': 5, 'salad': 5, 'dessert': 5, 'drink': 5, 'curry': 5}
+  recipe_id                    name category  \
+0      R001      Classic Margherita    pizza   
+1      R002       Pepperoni Supreme    pizza   
+2      R003  Garden Vegetable Pizza    pizza   
+
+                                         description  
+0  Wood-fired pizza with fresh mozzarella, basil ...  
+1  Loaded pepperoni pizza with extra cheese and a...  
+2  Bell peppers, mushrooms, olives, and red onion...
+
+----- cell 5 output -----
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Embedding 30 recipes...
+Embeddings shape: (30, 384)
+
+----- cell 7 output -----
+Query: 'creamy Italian dessert'
+category                name    score
+ dessert            Tiramisu 0.589747
+   pasta Spaghetti Carbonara 0.585897
+   drink          Cappuccino 0.529143
+
+----- cell 9 output -----
+Query                                    Top-1 prediction               Expected                 
+----------------------------------------------------------------------------------------------------
+  ✅  creamy Italian dessert               Tiramisu                       Tiramisu                 
+  ✅  spicy curry with coconut milk        Thai Green Curry               Thai Green Curry         
+  ✅  refreshing fruit smoothie            Mango Smoothie                 Mango Smoothie           
+  ✅  Mediterranean salad with feta        Greek Village Salad            Greek Village Salad      
+  ✅  rich chocolate pudding               Chocolate Lava Cake            Chocolate Lava Cake      
+  ✅  vegan main with beans                Vegan Chickpea Curry           Vegan Chickpea Curry     
+
+[Part A] Semantic top-1 accuracy: 6/6 = 100%
+
+----- cell 12 output -----
+TF-IDF vocab: 578, matrix shape: (30, 578)
+Query                                    TF-IDF top-1                   Expected                 
+----------------------------------------------------------------------------------------------------
+  ❌  creamy Italian dessert               Chicken Tikka Masala           Tiramisu                 
+  ✅  spicy curry with coconut milk        Thai Green Curry               Thai Green Curry         
+  ✅  refreshing fruit smoothie            Mango Smoothie                 Mango Smoothie           
+  ✅  Mediterranean salad with feta        Greek Village Salad            Greek Village Salad      
+  ✅  rich chocolate pudding               Chocolate Lava Cake            Chocolate Lava Cake      
+  ❌  vegan main with beans                Niçoise Salad                  Vegan Chickpea Curry     
+
+[Part B] TF-IDF top-1 accuracy: 4/6 = 67%
+
+----- cell 14 output -----
+Approach      Top-1 acc
+------------------------
+Semantic           100%
+TF-IDF              67%
+
+Target: Semantic ≥ TF-IDF: ✅ PASS
+
+----- cell 16 output -----
+
+Query: 'creamy Italian dessert'  (expected: Tiramisu)
+               name category    score
+           Tiramisu  dessert 0.589747
+Spaghetti Carbonara    pasta 0.585897
+         Cappuccino    drink 0.529143
+
+Query: 'spicy curry with coconut milk'  (expected: Thai Green Curry)
+               name category    score
+   Thai Green Curry    curry 0.624226
+     Massaman Curry    curry 0.568293
+Japanese Beef Curry    curry 0.519857
+
+Query: 'refreshing fruit smoothie'  (expected: Mango Smoothie)
+             name category    score
+   Mango Smoothie    drink 0.655978
+    Apple Crumble  dessert 0.414793
+Iced Matcha Latte    drink 0.379388
+
+Query: 'Mediterranean salad with feta'  (expected: Greek Village Salad)
+               name category    score
+Greek Village Salad    salad 0.661248
+       Caesar Salad    salad 0.585490
+ Classic Margherita    pizza 0.495310
+
+Query: 'rich chocolate pudding'  (expected: Chocolate Lava Cake)
+               name category    score
+Chocolate Lava Cake  dessert 0.466780
+       Crème Brûlée  dessert 0.439637
+      Apple Crumble  dessert 0.426559
+
+Query: 'vegan main with beans'  (expected: Vegan Chickpea Curry)
+                  name category    score
+  Vegan Chickpea Curry    curry 0.468695
+         Niçoise Salad    salad 0.335845
+Garden Vegetable Pizza    pizza 0.321499
+
+----- cell 18 output -----
+
+Query: 'a comforting dish for a cold winter night'
+  (why it's hard: vague intent -- lasagna, crumble, or a curry could all fit)
+                name category    score
+Chicken Tikka Masala    curry 0.399379
+   Iced Matcha Latte    drink 0.371239
+   Pepperoni Supreme    pizza 0.364175
+
+Query: 'an impressive dessert to end a dinner party'
+  (why it's hard: metaphor -- 'impressive' appears in no description)
+               name category    score
+Chocolate Lava Cake  dessert 0.423056
+      Apple Crumble  dessert 0.385659
+  Pepperoni Supreme    pizza 0.369132
+
+Query: 'a refreshing non-alcoholic drink'
+  (why it's hard: ambiguous -- could be the smoothie or the matcha latte)
+             name category    score
+    Old Fashioned    drink 0.531060
+Iced Matcha Latte    drink 0.476888
+   Mango Smoothie    drink 0.437787
+
+############################################################
+# notebooks/optional_extensions.ipynb
+############################################################
+
+----- cell 2 output -----
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loaded 76 products
+
+----- cell 4 output -----
+Feature matrix: (76, 384)  (each row is a 384-dim sentence embedding)
+Number of classes: 10
+
+3-fold cross-validated accuracy: 0.498 ± 0.089
+(Baseline: random guess with 10 classes = 10%)
+
+----- cell 6 output -----
+Predictions on novel descriptions:
+  (0.18) shirt         <- A lightweight cotton garment perfect for hot days
+  (0.42) footwear      <- Heavy-duty rubber-soled outdoor footwear
+  (0.18) home          <- Plush textile for warming the living room
+  (0.16) activewear    <- Compression-fit garment for high-intensity training
+
+----- cell 8 output -----
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Multilingual model loaded.
+Embeddings shape: (8, 384)
+
+----- cell 9 output -----
+
+Query (en): 'flowery cotton dress for warm weather'
+  [Spanish] Un vestido de verano ligero con flores   (score=0.774)
+  [French] Une robe d'été légère et fleurie   (score=0.762)
+  [English] A lightweight floral summer dress   (score=0.753)
+
+Query (en): 'sturdy boots for mountain walks'
+  [English] Heavy waterproof hiking boots for trekking   (score=0.750)
+  [French] Bottes de randonnée imperméables et robustes   (score=0.699)
+  [Spanish] Botas de senderismo impermeables y resistentes   (score=0.607)
+
+Query (en): 'rich chocolate sweet dish'
+  [French] Un dessert au chocolat crémeux avec un goût d'expresso   (score=0.854)
+  [English] A creamy chocolate dessert with espresso flavour   (score=0.785)
+  [French] Une robe d'été légère et fleurie   (score=0.088)
+
+----- cell 12 output -----
+
+Text  : 'blue summer dress'
+Tokens: ['blue', 'summer', 'dress']
+IDs   : [2630, 2621, 4377]
+
+Text  : 'lightweight floral frock'
+Tokens: ['lightweight', 'floral', 'fr', '##ock']
+IDs   : [12038, 18686, 10424, 7432]
+
+Text  : 'P0042'
+Tokens: ['p', '##00', '##42']
+IDs   : [1052, 8889, 20958]
+
+Text  : 'antidisestablishmentarianism'
+Tokens: ['anti', '##dis', '##est', '##ab', '##lish', '##ment', '##arian', '##ism']
+IDs   : [3424, 10521, 4355, 7875, 13602, 3672, 12199, 2964]
+
+Text  : 'spaghettification'
+Tokens: ['spaghetti', '##fication']
+IDs   : [26666, 10803]
+
+Text  : 'biryani 🍛'
+Tokens: ['bi', '##rya', '##ni', '[UNK]']
+IDs   : [12170, 20444, 3490, 100]

@@ -1,0 +1,1400 @@
+============================================================
+NOTEBOOK MARKDOWN CELLS
+============================================================
+
+##################################################
+# notebooks/01_monday_morning.ipynb
+##################################################
+
+----- md cell 0 -----
+# L09 · NB 01 — Monday morning: search is broken
+
+> *Marcus forwards an angry email at 9:14am. A customer typed "blue summer dress" into NorthStar's search bar. We have ten dresses that fit. None of them came up. The customer left.*
+
+This notebook is **pre-class**. Run it before class so you walk in with first-hand experience of *what's actually broken*.
+
+----- md cell 1 -----
+### 👟 Step into Sarah's shoes
+
+**Who you are.** You're **Sarah**, the new customer experience analyst  at **NorthStar**, an online clothing shop. That angry email Marcus forwarded? The search bar is your problem now.
+
+**The whole journey (4 notebooks).** You're going to fix NorthStar's broken search. Here's the road you'll walk, and *why each stop exists*:
+
+| NB | The question on Sarah's mind | What she does |
+|----|------------------------------|---------------|
+| **01 (you are here)** | *"Is search really broken — and why?"* | Reproduce the failure, prove it's a **meaning** problem, not a typo problem |
+| **02** | *"If the computer doesn't understand words, how could it ever?"* | Turn words into numbers (vectors) by hand, watch meaning appear |
+| **03** | *"Can I borrow a model that already understands English?"* | Plug in a pretrained model, beat the keyword baseline |
+| **04** | *"How do I ship this for real?"* | Wrap it in a production search engine + filters |
+
+---
+
+### 🎯 This notebook — Sarah's first morning
+
+**Her goal today isn't a fix — it's a diagnosis.** Before anyone writes a clever solution, Sarah needs to prove **what** is broken and **why**, with numbers the whole team can agree on.
+
+**How she'll do it — follow along step by step:**
+
+1. **Load the catalogue** — get the raw product list in front of her.
+2. **Eyeball the dresses** — read how they're actually described (spoiler: "frock", "gown", "sundress", rarely "dress").
+3. **Run the current keyword search** — reproduce the exact failure the customer hit.
+4. **Inspect the misses** — name the dresses that scored zero, and see *why*.
+5. **Try the obvious band-aids** (stemming, stop-words) — and watch them fail too.
+6. **Quantify the damage** across 8 realistic queries — turn one anecdote into a measurable problem.
+7. **Define success** — write down the *right* answer for each query, and score today's search against it. **This becomes the benchmark every later notebook must beat.**
+
+> By the end, Sarah won't have fixed search — but she'll be able to say *exactly* what's wrong and prove it. That's the foundation for NB 02–04.
+
+----- md cell 2 -----
+## 1 · Load the catalogue
+
+----- md cell 4 -----
+## 2 · Eyeball the dresses
+
+The customer searched for "blue summer dress". Let's look at all the dresses we have.
+
+----- md cell 6 -----
+Note what you DON'T see in those descriptions: very few of them contain all the words "blue", "summer", and "dress" together. The catalogue uses words like "frock", "sundress", "gown", and refers to colour in indirect ways (pastel, navy, champagne, etc).
+
+A keyword-matching search will struggle here. Let's confirm.
+
+----- md cell 7 -----
+## 3 · The naive keyword search
+
+The simplest possible search: split text into lowercase words, return any product whose description contains AT LEAST ONE query word.
+
+----- md cell 9 -----
+**Observe:** What got returned?
+
+You should see the search returning anything that contains the word "summer" or "blue" or "dress" — but several real dresses (Lila, Cassia, Petal) score 0 or 1 because their descriptions don't use those exact words.
+
+Worse: items in OTHER categories (a yoga top with the word "blue" in it, a "Bumblebee Romper" with "yellow and black") may score equal to or higher than relevant dresses.
+
+----- md cell 10 -----
+## 4 · Inspect the misses
+
+Which dresses got zero score for the query? These are the actual failures Marcus is hearing about.
+
+----- md cell 12 -----
+That's the customer-experience problem in one screen.
+
+The Lila Floral Sundress is exactly what the customer wanted. The description says *"lightweight floral frock perfect for warm summer days"*. To a keyword matcher, **frock ≠ dress**. Match score: 1 (just "summer"). The product is buried.
+
+----- md cell 13 -----
+## 5 · Will bandaids help? Stop-words + stemming
+
+----- md cell 15 -----
+Marginally better — but the fundamental problem remains. Stemming reduces "dresses" → "dress", but doesn't know that *frock* → *dress*. No amount of lexical processing helps because **the synonym problem isn't lexical, it's semantic**.
+
+----- md cell 16 -----
+## 6 · Quantify the damage across realistic queries
+
+Let's measure how often keyword search returns NOTHING USEFUL across a small set of plausible customer queries.
+
+----- md cell 18 -----
+Notice the pattern: for queries where the obvious keyword appears in the catalogue (like "leggings" — we have *Storm Yoga Leggings*), top-1 is great. For queries that depend on synonyms or paraphrasing ("warm winter jumper", "cosy throw"), top-1 is often a near-miss or a complete dud.
+
+Real customer queries skew **strongly** toward the second kind. That's what's hurting us.
+
+----- md cell 19 -----
+## 7 · What would success look like?
+
+For each of the queries above, write down the ONE product from the catalogue you'd want as top-1. We'll come back to this list in NB 03 and grade the semantic-search model against it.
+
+----- md cell 21 -----
+**Today's baseline.** Tomorrow we'll beat this with a model that has actually read English.
+
+----- md cell 22 -----
+## 8 · Three thought-questions for class
+
+1. Without using the word *dress*, *frock*, *gown*, *sundress*, or *outfit* — write three different ways a customer might describe what they want when they search for a summer dress.
+2. The query *gym leggings* worked perfectly because the product is called *Storm Yoga Leggings*. What would happen if the product was just called *Storm Leggings* with a description focused on construction ("high-rise compression")? Would keyword search still find it?
+3. If you had to bolt one feature onto keyword search without doing any ML, what would you build? Why does it not fully solve the problem?
+
+Bring your guesses to class.
+
+##################################################
+# notebooks/02_words_to_vectors.ipynb
+##################################################
+
+----- md cell 0 -----
+# L09 · NB 02 — Words to vectors
+
+> *Before we use a pretrained model, let's build the intuition for what a vector representation of text actually means.*
+
+The point: by the time you see a pretrained `SentenceTransformer` in NB 03, you should know exactly what mathematical object it's producing and why.
+
+----- md cell 1 -----
+### 👟 Step into Sarah's shoes
+
+**Where we left off (NB 01).** Sarah proved NorthStar's search is broken because it matches *spelling*, not *meaning* — to a keyword search, **frock ≠ dress**. The fix has to teach the computer that those words *mean* the same thing.
+
+**But here's Sarah's honest problem:** a computer only does maths. It can't "understand" a word. So before she reaches for any fancy model, she wants to answer a more basic question for herself —
+
+> *"How could a number possibly capture what a word means? And how would a computer ever figure out that 'frock' and 'dress' belong together — without me telling it?"*
+
+**What Sarah wants to achieve here.** Build the intuition for **embeddings** (words as vectors) *from scratch, by hand*, so that when she plugs in a real pretrained model in NB 03 she knows exactly what mathematical object it's producing — and isn't treating it as magic.
+
+**How she'll do it — each step is a deliberate experiment that fails forward:**
+
+1. **One-hot vectors** — the dumbest possible "word → numbers". Watch it prove that every word is equally unrelated to every other (meaning = lost).
+2. **Bag-of-words** — count words in a whole description. A step up, but it *still* can't connect synonyms.
+3. **Co-occurrence embedding** — the key idea: *a word is known by the company it keeps.* Build this by hand and watch real similarity finally appear (cotton ≈ linen).
+4. **Visualise in 2D** — see related words physically cluster. **This is the punchline: meaning becomes geometry.**
+
+> Each step is designed to *fail in an instructive way*, so the next step's idea feels necessary instead of arbitrary. By the end Sarah has hand-built a tiny embedding — and understands why she needs a bigger, pretrained one (NB 03).
+
+----- md cell 2 -----
+## 1 · Setup
+
+----- md cell 4 -----
+## 2 · One-hot encoding — the naive baseline
+
+The very first question: *how do we turn a word into numbers at all?* The simplest possible answer is **one-hot encoding**.
+
+**The recipe:**
+1. Collect every unique word in the catalogue into one big list — the **vocabulary**. Here it has **552** words.
+2. Give each word a fixed seat number (an *index*) in that list, from 0 to 551.
+3. To represent a word, write down 552 numbers that are **all 0 except a single 1** — placed in that word's seat.
+
+> **Analogy: one light switch per word.** Picture a panel of 552 light switches in a row, one per vocabulary word. To represent `'frock'`, you flip ON *only* the switch at frock's seat and leave all 551 others OFF. Every word has its own switch, so no two words ever look alike — but the panel says nothing about which words *mean* similar things.
+
+### How to read the output below
+
+Each word prints a line like this:
+
+```
+'frock'  -> vector of (552,), sum=1, nonzero at index 188
+```
+
+Read it left to right:
+
+| Part | Means |
+|------|-------|
+| `vector of (552,)` | The word became a list of **552 numbers** (one slot per vocabulary word). |
+| `sum=1` | Adding up all 552 numbers gives **1** — confirming there's exactly **one** `1` and the rest are `0`. |
+| `nonzero at index 188` | That single `1` sits in **slot 188** — frock's assigned seat. `dress` sits at 140, `gown` at 197: **different seats, nothing shared.** |
+
+The last word is the interesting one:
+
+```
+'spaceship'  -> vector of (552,), sum=0, nonzero at index NONE
+```
+
+`sum=0` and `index NONE` mean **the word was never found** in the catalogue, so it has no seat — it becomes an all-zero vector. (A clothing shop has no reason to mention spaceships!) This is a real limitation: one-hot can only represent words it has already seen.
+
+**The takeaway to carry into Step 3:** every real word gets a `1` in its own private slot and `0` everywhere else. Because no two words share a slot, the vectors give each word a unique *ID* but encode **zero information about meaning** — which is exactly the problem Step 3 exposes.
+
+----- md cell 6 -----
+## 3 · The equidistance problem
+
+### First, what is cosine similarity?
+
+We need a way to ask "how *similar* are two vectors?" The trick is to ignore how **long** the vectors are and look only at the **direction** they point.
+
+Think of each vector as an **arrow** starting from the same spot:
+
+- Two arrows pointing the **same way** → cosine **= 1.0** (identical direction, maximally similar).
+- Two arrows at a **right angle** (90°) → cosine **= 0.0** (totally unrelated).
+- Two arrows pointing **opposite** ways → cosine **= -1.0** (opposite).
+
+> **Compass analogy.** Imagine each word is a hiker walking from camp. Cosine similarity asks: *are two hikers heading in the same compass direction?* It doesn't care whether one walked 1 km and the other 10 km — only whether they're going the **same way**. "North vs north" = 1.0. "North vs east" = 0.0.
+
+Mathematically it's just the dot product divided by the two lengths — but the compass picture is all you need to read the numbers below.
+
+### Now the problem
+
+Compute cosine similarity between several pairs of **one-hot** vectors. Remember each one-hot vector has a single `1` in its own private slot and `0` everywhere else — like every word standing on its **own separate axis**.
+
+Because no two words ever share a slot, every distinct pair sits at a perfect right angle → **cosine is always 0**.
+
+> **Analogy.** It's like giving every word its own room in a hotel with the doors locked. "frock" is in room 188, "dress" in room 140, "spaceship" in room 451. From inside its locked room, "frock" has *no idea* whether its neighbour is "dress" or "spaceship" — every other room is just "somewhere else", equally far away.
+
+That means "frock" is measured as **exactly as similar** to "dress" as it is to "spaceship". The numbers are mathematically tidy but meaning is completely lost.
+
+----- md cell 8 -----
+Three different word pairs, three identical scores. The model has no notion of meaning.
+
+----- md cell 9 -----
+## 4 · Bag-of-words (a small step up)
+
+Represent an entire DOCUMENT as a vector of word *counts* — one count per vocab word. Two documents talking about the same topic with the same words will be close in this space.
+
+----- md cell 11 -----
+### Now test bag-of-words as a search engine
+
+----- md cell 13 -----
+Same problem as keyword search — BoW only matches on shared content words. The Lila Floral Sundress (description: "lightweight floral frock") gets a low score because none of the **query words** appear in its description.
+
+We need vectors that capture **meaning**, not just word presence.
+
+----- md cell 14 -----
+## 5 · The embedding idea — co-occurrence
+
+Here's the key insight (Firth, 1957): **words that appear in similar contexts tend to mean similar things.**
+
+Build a co-occurrence matrix: for each word, count how often each other word appears within a small window around it across the whole corpus. Words that share many neighbours end up with similar count-vectors.
+
+This is a toy version of Word2Vec / GloVe.
+
+----- md cell 16 -----
+Each ROW of `cooccur` is now a vector representing a word — but using its co-occurrence pattern, not just its identity.
+
+----- md cell 17 -----
+### Try the cosine similarities again
+
+----- md cell 19 -----
+**Real differentiation, but partial.** Compare these numbers to the one-hot case where every pair was exactly 0:
+
+- *cotton ↔ linen* gets a meaningful 0.378 — both fabrics, often described with overlapping adjectives (breathable, lightweight)
+- *frock ↔ gown* sits at 0.158 — both garment words, some shared context
+- *frock ↔ trainers* near 0 — different categories, different vocabulary
+- But *frock ↔ dress* is only 0.035 — surprisingly low!
+
+The low frock/dress similarity is a real limitation of our toy embedding: each PRODUCT description uses **only one** of these synonyms, so they rarely co-occur. The model picks up "fabrics share context" much more easily than "synonyms share context" on a tiny corpus.
+
+This is exactly the gap that **pretrained sentence-transformers fix** — they're trained on billions of sentences where the same idea is paraphrased many different ways. Tomorrow you'll see frock/dress jump to about **0.25** — roughly 7× this toy embedding's 0.035, and a meaningful ranking signal even though it doesn't look like a big number. (Sentence-transformer cosines live in [0.2, 0.7]; read them as ranking, not percent.)
+
+----- md cell 20 -----
+## 6 · Visualise the embedding in 2D
+
+Each word's co-occurrence vector lives in 1000+ dimensional space. We can't see that, but we can project it down to 2D with PCA and look at how words cluster.
+
+----- md cell 22 -----
+Look at the plot. Even with our tiny 76-document corpus you should see some partial clustering — fabric words tend to live in one region, garment words in another, footwear words mostly together. The clustering is **noisy** because the corpus is small, but the geometry is real.
+
+In NB 03 we'll project a pretrained model's embeddings the same way and see much tighter clusters — that's what training on a billion sentences buys you.
+
+**Key point regardless of size:** the model was never told the categories. It deduced them purely from which words tend to appear near each other. *This is meaning, expressed as geometry.* That's all an embedding is.
+
+----- md cell 23 -----
+## 7 · Limitations of our toy embedding
+
+Our hand-built co-occurrence vectors are real embeddings, but tiny ones. Limitations:
+
+- **Vocabulary**: only words from THIS catalogue. Unknown words → no vector.
+- **Static**: every occurrence of "bank" gets the same vector regardless of context.
+- **Sparse and noisy**: 76 product descriptions is a tiny corpus. Real models train on billions of words.
+- **Word-level**: we have vectors for words, not sentences. To embed a query, we'd have to average word vectors and lose word-order information.
+
+The modern fix to all four problems is **transformer-based sentence-encoders** like the one we use in NB 03. Pretrained on >1B sentences. 30,000-token subword vocabulary. Context-aware (each word's vector depends on its neighbours). Sentence-level output.
+
+You've now built one by hand. Tomorrow you'll plug in one that's a million times bigger.
+
+----- md cell 24 -----
+---
+
+## 🟡 Extension — self-study after class
+
+*Skipping this section will not affect your understanding of later lessons. Come back to it when you have time and want to go deeper.*
+
+----- md cell 25 -----
+## E1 · Try your own word pairs
+
+Pick five word pairs from the catalogue and compute their cosine similarity. Do the numbers match your intuition? Where does the embedding surprise you (positively or negatively)?
+
+----- md cell 27 -----
+Notice some hits and some misses. Our embedding doesn't capture antonyms well (summer/winter often appear in similar contexts so they end up close). Real sentence-transformers handle this better, but the limitation is fundamental — the distributional hypothesis says "company you keep", and opposites often keep similar company.
+
+----- md cell 28 -----
+## E2 · A smaller embedding via SVD
+
+The co-occurrence rows are huge (1000+ dim). Use SVD (Singular Value Decomposition) to compress to a much smaller dense embedding — this is essentially the GloVe approach.
+
+----- md cell 30 -----
+Compressed embeddings preserve most of the meaning while being much faster to work with. Real models (Word2Vec, GloVe, MiniLM) output 100-768 dim vectors — never the full vocabulary size. Dense + low-dim is the modern default.
+
+##################################################
+# notebooks/03_pretrained_embeddings.ipynb
+##################################################
+
+----- md cell 0 -----
+# L09 · NB 03 — Pretrained sentence embeddings
+
+> *Now we plug in the real thing: a sentence-transformer pretrained on > 1 billion sentence pairs. Same machinery as our toy embedding, but with a corpus and capacity bigger by ~7 orders of magnitude.*
+
+----- md cell 1 -----
+### 👟 Step into Sarah's shoes
+
+**Where we left off (NB 02).** Sarah hand-built a tiny embedding and saw meaning start to emerge — but it was weak: *frock ↔ dress* scored only **0.035**, because her toy corpus was just 76 product descriptions. The *idea* works; it just needs vastly more data than she could ever build herself.
+
+**Sarah's realisation:** she doesn't have to. Someone has already trained a model on **a billion+ sentences**. She can borrow it.
+
+> *"Same machinery as my toy embedding — but trained on the whole internet instead of 76 product blurbs. Will it finally know that frock means dress? And will it actually beat my keyword baseline from NB 01?"*
+
+**What Sarah wants to achieve here.** Swap her hand-made vectors for a real pretrained **sentence-transformer**, confirm it understands synonyms, and **grade it on the exact 8-query benchmark she defined in NB 01** — turning "this feels better" into a measured win.
+
+**How she'll do it — step by step:**
+
+1. **Load `all-MiniLM-L6-v2`** — a small, fast, pretrained model. One line of code.
+2. **Embed a few sentences** — see any text become a 384-number vector via `.encode()`.
+3. **The synonym test** — re-run the pairs her toy model flunked. Watch frock/dress jump from 0.035 → ~0.25. *(Important lesson: read the scores as a* ***ranking signal***, *not a "percent similar".)*
+4. **Embed the whole catalogue** — once, then cache it (this is what production does).
+5. **Re-run "blue summer dress"** — the query that failed in NB 01.
+6. **Grade against ground truth** — beat the 5/8 keyword baseline.
+7. **Visualise in 2D** — see far tighter clusters than the toy model's. *That's* what a billion sentences buys.
+
+> The payoff: the once-buried Lila Sundress climbs into the top results, and Sarah can prove the upgrade with the same benchmark Marcus saw fail. Next, NB 04 makes it production-ready.
+
+----- md cell 2 -----
+## 1 · Setup + load the model
+
+----- md cell 4 -----
+**22 million parameters, 384-dim output.** Tiny by modern standards (BERT-base is 110M; GPT-4 is ~1T) but powerful enough to crush keyword search.
+
+Every sentence we feed in comes out as a 384-dim vector. That's roughly **1000× smaller** than our toy co-occurrence matrix and infinitely more meaningful.
+
+----- md cell 5 -----
+## 2 · Embed a few sentences
+
+Now we use the model. The whole interface is one method: `model.encode(list_of_texts)` hands back one vector per text. We feed in **4 sentences** and inspect what comes out.
+
+----- md cell 7 -----
+### How to read the output above
+
+```
+Output shape: (4, 384)
+```
+
+This is the shape of the result: **4 rows × 384 columns**. One **row per sentence** we passed in, and each row is a list of **384 numbers** — the embedding. (In NB 02 our toy vectors had 552 dimensions, one per vocab word; this real model packs meaning into a fixed 384 *regardless* of vocabulary size.)
+
+```
+First sentence first 8 dims: [-0.094  0.037  0.063  0.044  0.035  0.017  0.093 -0.072]
+```
+
+These are just the **first 8 of the 384 numbers** for sentence #0 (`"blue summer dress"`). Don't try to interpret any single number — individually they mean nothing to a human. What matters is the *whole* 384-number pattern, and how close it points to another sentence's pattern (that's the synonym test in Step 3). They're a mix of small positive and negative values, which is normal.
+
+```
+L2 norm: 1.000  (normalised by default)
+```
+
+The **L2 norm** is the geometric *length* of the vector (√ of the sum of its squared values). The model returns it as **exactly 1.0** — every embedding has been scaled to sit on a unit sphere. Why this matters:
+
+> When all vectors have length 1, comparing two of them by **cosine similarity** (the angle between them — the "compass direction" idea from NB 02) becomes the same as a plain **dot product**. That's why later cells can just write `np.dot(a, b)` instead of the full cosine formula — the normalisation already did half the work.
+
+**The takeaway:** any text in → a fixed 384-number, length-1 vector out. That's the entire job of the model. Everything that follows is just measuring angles between these vectors.
+
+----- md cell 8 -----
+## 3 · The synonym test
+
+This is the moment of truth. Recall from NB 02 that our toy embedding gave cosine(frock, dress) = 0.035. What does a real pretrained model say?
+
+----- md cell 10 -----
+Compare these to the toy-embedding numbers from NB 02:
+
+| Pair                | NB 02 (toy)  | NB 03 (real)  |
+|---------------------|------------:|-------------:|
+| frock ↔ dress       | 0.035       | 0.249        |
+| frock ↔ gown        | 0.158       | 0.288        |
+| sundress ↔ dress    | 0.054       | 0.509        |
+
+**Two important observations.** First, the pretrained model has lifted every synonym pair well above the toy embedding — frock/dress went from essentially zero to 0.25, sundress/dress to 0.51. The model learned these connections from billions of training sentences.
+
+Second, the absolute cosine values are **not as high as you might expect — and the floor is not zero.** Look at the output above: `dress ↔ spaceship` scores **0.257** and `dress ↔ trainers` **0.241**. Unrelated pairs do *not* sit near 0 the way they did for the toy embedding — with `all-MiniLM-L6-v2` everything lives mostly in [0.2, 0.7], so there is a high baseline. In fact `frock ↔ dress` (0.249) lands a hair *below* `dress ↔ spaceship` (0.257)! That is the key warning: a single pairwise cosine tells you almost nothing on its own, and you must **never** read one as "percent similar" or compare it against an imagined 0.0 floor. What makes semantic search work is **ranking within a query**: when you score a real query against the whole 76-product catalogue (next section), the genuinely relevant products aggregate enough signal to rise to the top even though every individual score looks "mid".
+
+Crucially: *blue summer dress* and *lightweight floral frock perfect for warm summer days* score 0.41 even though they share only one content word. The longer phrase contains a lot of unrelated detail (warm, days, tea-length etc.) which lowers the cosine — but it's still high enough to **rank** the right products near the top.
+
+----- md cell 11 -----
+## 4 · Embed the entire catalogue
+
+In production you'd do this once and cache the result. We'll see it takes seconds for 76 products and would still take only minutes for 76,000.
+
+----- md cell 13 -----
+**76 products embedded in seconds.** On a typical 50K-product catalogue this is a 2-minute one-time cost. Negligible.
+
+----- md cell 14 -----
+## 5 · The 'blue summer dress' query
+
+Let's redo the failing query from NB 01.
+
+----- md cell 16 -----
+Look at that top-10. **7 of the 10 results are dresses** — exactly the right category. The model knows "blue summer dress" is fundamentally a dress query.
+
+A few honest observations:
+
+- **#1 is Frost Linen Shirt** (described as "pale ice blue ... breathable linen ... vacation packing essential"). That's not a dress, but it IS blue, summery, and lightweight. A defensible miss.
+- **Lila Floral Sundress** — the synonym-fail target from NB 01, completely missed by keyword search — now sits at **rank 3 of 76**. The model knows *frock* ≈ *dress*.
+- **Marigold Shift Dress** ranks #2 even though it's yellow. The model weights "dress" more heavily than "blue".
+
+This is the keyword-to-semantic upgrade: the right answer is no longer buried at rank 50, it's in the top 5. A real production engine would also re-rank by structured signals (category filter, colour filter) to handle the colour-overweighting issue.
+
+----- md cell 17 -----
+## 6 · Grade against ground truth
+
+Remember the 8-query benchmark from NB 01? Keyword search got 5/8 correct top-1. Let's grade the semantic model on the same queries.
+
+----- md cell 19 -----
+**Honest result.** Semantic search isn't perfect — some of these queries are ambiguous and even a human might choose differently. What matters is the relative pattern: queries that rely on synonyms or paraphrases (the realistic case) move from "hopeless" to "top-3 with the right thing on the list".
+
+----- md cell 20 -----
+## 7 · Visualise the catalogue in 2D
+
+Project the 384-dim catalogue embeddings down to 2D with PCA. Colour by category. We expect tight category clusters.
+
+----- md cell 22 -----
+Look at the structure. Even compressed to 2D you can see:
+
+- Dresses, knits, shirts, coats — each clusters tightly with itself
+- Footwear sits in its own region
+- Home goods (towels, vases, cushions) are far from clothing
+- Activewear is between gym-related clothes and footwear
+
+The model never saw the category labels. It deduced these groupings purely from English. That's the geometric meaning of a sentence embedding.
+
+----- md cell 23 -----
+## 8 · Recap
+
+What changed from NB 02 to NB 03:
+
+| Aspect | Toy embedding (NB 02) | Pretrained (NB 03) |
+|--------|----------------------|--------------------|
+| Training corpus | 76 product descriptions | > 1 billion sentence pairs |
+| Vocabulary | 552 words | 30,000 subword tokens |
+| Embedding dim | 552 (raw) or 50 (SVD) | 384 |
+| Context-aware | No (static) | Yes (transformer) |
+| Sentence-level | No (word-only) | Yes (native) |
+| frock ↔ dress cosine | 0.035 | 0.249 |
+| sundress ↔ dress cosine | 0.054 | 0.509 |
+| Top-1 accuracy (8-query bench) | n/a | 6/8 (75%) vs keyword 5/8 (62%) |
+
+The model does the heavy lifting. We just call `.encode()` and store the result.
+
+**Honest assessment:** top-1 went from 62% to 75%, and the right answer (when not top-1) consistently lands in the top 5. That's a real but modest win — most production search systems combine semantic ranking with structured filters (category, price range, colour). NB 04 builds a clean search-engine wrapper and explores TF-IDF as a complement.
+
+**Next:** turn this into a production-grade search engine. NB 04.
+
+----- md cell 24 -----
+---
+
+## 🟡 Extension — self-study after class
+
+*Skipping this section will not affect your understanding of later lessons. Come back to it when you have time and want to go deeper.*
+
+----- md cell 25 -----
+## E1 · Encoding speed and batching
+
+How fast can the model embed at scale? Try encoding 1000 sentences and see throughput. Increase batch_size and see if it helps on your machine.
+
+----- md cell 27 -----
+## E2 · Average word vectors as a baseline
+
+Before sentence-transformers, the cheap way to embed a sentence was to **average its word vectors**. This loses word order but is computationally trivial. Compare it to MiniLM.
+
+----- md cell 29 -----
+Word-vector averaging is a real technique. It's worse than transformer-based encoders because it discards word order and uses uniform weights — but it's blazing fast and works as a baseline. For tiny corpora and latency-critical applications, this is still used. For real search, use the pretrained model.
+
+##################################################
+# notebooks/04_semantic_search.ipynb
+##################################################
+
+----- md cell 0 -----
+# L09 · NB 04 — Build a semantic search engine
+
+> *We have embeddings. Now let's wrap them in a clean, production-style search engine and benchmark it head-to-head against TF-IDF — the classical baseline that every real search system still uses for exact-match queries.*
+
+----- md cell 1 -----
+### 👟 Step into Sarah's shoes
+
+**Where we left off (NB 03).** Sarah proved a pretrained model beats keyword search on her benchmark. The brain works. But a pile of embeddings in a notebook is **not a search engine** — and Marcus can't ship a science experiment.
+
+> *"Great, it's smart. Now: how do I package this so the website can call it? Do I throw away the old keyword approach entirely? And what does a real production search system actually look like?"*
+
+**What Sarah wants to achieve here.** Turn the loose pieces into a clean, reusable **search engine**, stress-test it honestly against the classical baseline (**TF-IDF**), and design the real-world wiring NorthStar would actually deploy.
+
+**How she'll do it — step by step:**
+
+1. **Wrap it in a class** — `SemanticSearch` with a tidy API: `.add()`, `.search()`, `.search_with_filters()`. This is the shippable artifact.
+2. **Run real queries** — including ones with *no* category keyword ("something cosy to wear hiking") to show it generalises.
+3. **Add structured filters** — restrict to a category/price first, *then* rank. Filters + semantics are complementary, not rivals.
+4. **Build TF-IDF** — the classical "smart Ctrl-F" baseline every real engine still uses.
+5. **Benchmark head-to-head** — semantic vs TF-IDF on the same 8 queries. See exactly which queries each wins.
+6. **Find where each wins** — synonyms favour semantics; exact product names favour TF-IDF.
+7. **Draw the production diagram** — the **hybrid** design: run both, union the candidates, filter, re-rank, return.
+
+> The lesson that lands: production search isn't "semantic OR keyword" — it's **both, plus filters, plus a re-ranker**. Sarah finishes with a working engine *and* the architecture to scale it.
+
+----- md cell 2 -----
+## 1 · Setup — load model, catalogue, cached embeddings
+
+----- md cell 4 -----
+## 2 · A clean search-engine class
+
+One class, three methods. Everything that follows uses this object.
+
+----- md cell 6 -----
+## 3 · Try a few queries
+
+----- md cell 8 -----
+Note the second and third queries — *something cosy to wear hiking* and *business attire for women*. Neither uses any product-category keywords. Both pull plausible results. That's semantic search delivering on its promise.
+
+----- md cell 9 -----
+## 4 · Filters on top of semantic ranking
+
+In production you usually want to RESTRICT the corpus first (e.g., to one category, or one price range) and then rank within that subset. The `search_with_filters` method does this.
+
+----- md cell 11 -----
+With the category filter applied, the non-dress distractor (Frost Linen Shirt) is gone, so *Lila Floral Sundress* climbs from rank 3 to **rank 2**. It is still behind *Marigold Shift Dress* (a yellow dress) — the model over-weights the word "dress" relative to the colour "blue". So the filter helps but does **not** fully fix the colour-blindness; closing that gap needs a colour filter or a re-ranker on top.
+
+**Production lesson:** structured filters and semantic ranking are complementary. Don't pick one. Use filters for what filters do well (exact field matching), use embeddings for the rest.
+
+----- md cell 12 -----
+## 5 · TF-IDF — the classical baseline
+
+Let's build a TF-IDF search engine over the same corpus and compare head-to-head. TF-IDF treats every word as independent but weights them by how rare they are across the corpus.
+
+----- md cell 14 -----
+### TF-IDF on the same 'blue summer dress' query
+
+----- md cell 16 -----
+TF-IDF's bigrams and IDF weighting are an improvement over the NB 01 keyword search, but it still can't find Lila Floral Sundress because the description never uses the words *summer*, *dress*, or *blue*.
+
+----- md cell 17 -----
+## 6 · Head-to-head benchmark
+
+Run all 8 ground-truth queries through both engines.
+
+----- md cell 19 -----
+**Headline result: Semantic 6/8 top-1, 7/8 top-5. TF-IDF 4/8 on both.**
+
+Semantic wins decisively. The four common wins are the "easy" queries (cosy throw / gym leggings / beach holiday outfit / running trainers — where the right answer's name contains a content word from the query). The two semantic-only wins (warm winter jumper, smart office shoes) are exactly the synonym-heavy cases where TF-IDF goes off the rails — *jumper* matches "Holly Knit Jumper Dress" (a dress!) because TF-IDF doesn't know one is a noun-modifier and one is the head noun.
+
+The two queries where both fail (*blue summer dress*, *lightweight rain jacket*) need the structured filters we explored in §4. We'll close that gap shortly.
+
+----- md cell 20 -----
+## 7 · When each approach wins
+
+Let's construct two queries to make the contrast obvious.
+
+----- md cell 22 -----
+**Honest observations from the two contrastive queries:**
+
+- For the **synonym query** ("soft cotton flowy garment with petal patterns"), *both* engines fail to put Lila at top-1 — semantic ranks it 19, TF-IDF ranks it 17. This is a hard case: the query uses metaphorical language (*petal patterns* for floral, *flowy garment* for dress) that even the pretrained model only weakly connects to the product description.
+- For the **exact product name** ("Marina Wrap Dress"), both engines instantly return the right product at rank 1. TF-IDF's strength is exact matching; semantic also handles this case because the literal words are highest-similarity matches.
+
+Why does the synonym query fail? The small catalogue (76 products) gives the model few examples to differentiate from. And the query reads more like poetry than a typical search — real customers tend to use simpler phrasings like "floral cotton dress" which the model handles well.
+
+**This is the production reality:**
+
+```
+final_results = semantic_top_K  ∪  tfidf_top_K   # union of candidates
+              → re-rank by weighted combo + structured filters
+              → return top-K
+```
+
+Hybrid retrieval. Embeddings for semantic recall, TF-IDF for exact-token precision, structured filters for hard constraints, re-ranker on top for the final scoring. Try the hybrid score in the Extensions section — α=0.5 actually brings Lila into the top 5 for "blue summer dress".
+
+----- md cell 23 -----
+## 8 · Sarah's production wiring diagram
+
+Design for NorthStar's search:
+
+----- md cell 25 -----
+**Practical considerations Sarah flagged for production:**
+
+- **Embedding latency.** Encoding the query is ~5 ms on CPU. Cosine over 50K products is < 5 ms with a NumPy matmul. Total search latency < 50 ms — fine.
+- **Re-embedding cadence.** When merchandisers update a product description, that product's embedding goes stale. Re-embed the affected rows nightly.
+- **Cold-start.** When NEW products arrive, embed them within minutes (a separate small batch job) so they appear in search quickly.
+- **Vector database.** At < 100K products, NumPy is fine. At 1M+, switch to FAISS / Pinecone / Weaviate for sub-millisecond approximate-nearest-neighbour.
+- **Monitoring.** Log query → top-result CTRs. If a query's top results have zero clicks → bad ranking → re-rank weights need tuning.
+
+----- md cell 26 -----
+## 9 · Recap
+
+In this notebook we:
+
+1. Built a `SemanticSearch` class with a clean three-method API
+2. Added structured filters on top of semantic ranking — *exactly* what production search needs
+3. Compared head-to-head against TF-IDF and saw both have niches (synonyms vs exact tokens)
+4. Drew the production diagram: hybrid retrieval + filters + re-ranker
+
+You now have a working semantic search engine. The next lesson opens the black box: what's INSIDE the transformer that produces these embeddings?
+
+----- md cell 27 -----
+---
+
+## 🟡 Extension — self-study after class
+
+*Skipping this section will not affect your understanding of later lessons. Come back to it when you have time and want to go deeper.*
+
+----- md cell 28 -----
+## E1 · A simple hybrid score
+
+Combine semantic and TF-IDF scores linearly. Tune the weight and see what works best.
+
+----- md cell 30 -----
+Run the cell with α=0.0, α=0.5, α=1.0 to see the spectrum. The sweet spot for most production systems sits around 0.6-0.8 — slightly biased toward semantic but TF-IDF helping with exact matches.
+
+----- md cell 31 -----
+## E2 · Find duplicates within the catalogue
+
+Catalogue dedup is a real merchandising problem. Embed every product and look for pairs with very high cosine similarity — those are candidates for being near-duplicates.
+
+----- md cell 33 -----
+None of these will actually be true duplicates in our catalogue, but you can see how the technique would flag them. In a real product taxonomy, near-duplicates often share a backbone description (manufacturer copy) — their cosine similarity sits above 0.95. Pairs over that threshold get sent to merchandisers to merge or differentiate.
+
+##################################################
+# notebooks/assignment.ipynb
+##################################################
+
+----- md cell 0 -----
+# L09 · Assignment — Recipe semantic search
+
+> *Sarah's product search demo went well. Marcus's friend who runs a recipe website asks her for the same thing — but for recipes. The corpus is small (30 recipes) but the queries are even more synonym-heavy: "creamy Italian dessert", "spicy something with rice", "summery starter".*
+
+In this assignment you will:
+
+**Part A.** Build a semantic search engine on a recipe corpus. Apply it to a benchmark of 6 natural-language queries.
+
+**Part B.** Build a TF-IDF baseline and compare. **Target: semantic ≥ TF-IDF on top-1.**
+
+**Part C.** Reflect on **two** specific failure modes and how to fix them.
+
+Total runtime: ~5 minutes.
+
+---
+
+## Setup
+
+----- md cell 2 -----
+---
+
+## 📚 Choose your track
+
+This assignment has **two tracks**. Pick **one** based on your background — you don't need to do both.
+
+| Track | Who it's for | What you'll do |
+|---|---|---|
+| **🟢 Foundational Track** | Learners new to ML / programming | Part A — build the semantic search engine + benchmark |
+| **🔵 Advanced Track** | Learners with prior ML background | Run the shared Setup + Part A engine cells, then Part B (TF-IDF baseline) + Part C (failure-mode reflection) |
+
+If you're unsure, start with the **Foundational Track**. Both tracks cover the same lesson outcomes; only the scaffolding differs. **Everyone runs the shared Setup cell and Part A's three engine cells** — they build the semantic search engine that Parts B and C compare against. The Advanced Track simply adds the TF-IDF baseline and the written reflection.
+
+---
+
+----- md cell 3 -----
+---
+
+# 🟢 Foundational Track
+
+> *No prior ML background needed. The cells below are scaffolded — read the worked example, then fill in the blanks. Hints are included.*
+
+---
+
+----- md cell 4 -----
+---
+
+## Part A — Semantic search
+
+Load the pretrained model, embed every recipe, build a `search()` function.
+
+### A.1 · Embed the corpus
+
+----- md cell 6 -----
+### A.2 · Define the search function
+
+----- md cell 8 -----
+### A.3 · The benchmark queries
+
+Your engine will be evaluated against these 6 queries:
+
+----- md cell 10 -----
+---
+
+# 🔵 Advanced Track
+
+> *For learners with prior ML background. Minimal scaffolding — you decide the approach. First run the shared Setup cell and Part A's engine cells above (they define `model`, `documents`, and `semantic_search`); then complete Parts B and C below.*
+
+---
+
+----- md cell 11 -----
+---
+
+## Part B — TF-IDF baseline
+
+Build a TF-IDF retriever on the same corpus.
+
+----- md cell 13 -----
+### B.1 · Head-to-head
+
+----- md cell 15 -----
+---
+
+## Part C — Reflect on failure modes
+
+Identify **two** queries from the benchmark where semantic search failed (or where its top-1 wasn't ideal), and explain:
+
+1. **Why** did the model rank the wrong recipe first?
+2. **What** could you do to fix it in a production system?
+
+Semantic search often gets all six benchmark queries right, so two good sources of failure material are: (a) the **two least confident** benchmark queries (lowest top-1 score), and (b) the **stretch queries** in C.1b below, which are designed to break or confuse the model.
+
+### C.1 · Identify candidates for failure
+
+----- md cell 17 -----
+### C.1b · Stretch queries — deliberately hard
+
+The six benchmark queries are fairly *easy*: the right recipe's name usually shares a word with the query, so semantic search tends to nail them. Real customers aren't that tidy.
+
+The three **stretch queries** below are intentionally hard — they use paraphrase, metaphor, or are genuinely ambiguous, so there is **no single correct answer**. Run the cell, read the top-3 for each, and decide for yourself whether the result is defensible. These are your best material for the reflection in C.2.
+
+----- md cell 19 -----
+### C.2 · Your reflection
+
+Pick **two** queries — from the benchmark or (better) the stretch queries in C.1b. For each, write 2-3 sentences explaining:
+
+- WHY the model behaved as it did
+- WHAT signal (filter, re-ranker, additional context) would fix it in production
+
+**Query 1 reflection:** *(your answer)*
+
+**Query 2 reflection:** *(your answer)*
+
+### C.3 · Open-ended improvement
+
+The benchmark queries are easy; the stretch queries show how quickly accuracy drops on realistic, messy language. Imagine a larger, noisier corpus where semantic search reaches only ~80% top-1: if you had to add ONE thing to push it from 80% to 95%, what would it be? (one sentence)
+
+*(your answer)*
+
+----- md cell 20 -----
+---
+
+## Submission checklist
+
+- [ ] Part A — Semantic search built, benchmarked, accuracy printed
+- [ ] Part B — TF-IDF baseline built, head-to-head comparison printed
+- [ ] Part B target — Semantic ≥ TF-IDF (PASS)
+- [ ] Part C — Two failure-mode reflections completed
+- [ ] Part C — One open-ended improvement suggestion
+
+Save the notebook with outputs and submit.
+
+##################################################
+# notebooks/optional_extensions.ipynb
+##################################################
+
+----- md cell 0 -----
+# L09 · Optional Extensions
+
+> *Self-study material — three independent dives that round out your embeddings toolkit. Skip any of them; do them in any order.*
+
+This notebook covers three techniques worth knowing about:
+
+1. **Embeddings for classification** — use sentence embeddings as features for a classifier (instead of a search index)
+2. **Multilingual embeddings** — the same model handles English queries against French descriptions
+3. **Tokenisation up close** — what subword tokens actually look like for your text
+
+Each takes ~5 minutes.
+
+----- md cell 1 -----
+## Common setup
+
+----- md cell 3 -----
+---
+
+## Experiment 1 — Embeddings as features for classification
+
+We've used embeddings for *retrieval* (find similar things). They're also great as *features* for any downstream classifier. We'll predict product category from description using just a logistic regression on top of the embeddings.
+
+----- md cell 5 -----
+**Honest result: ~47% accuracy.** That sounds low, but check the conditions: 10 classes, only ~7 training examples per class in each fold. Random guessing would be 10%. So the model is doing ~5× better than chance using just 7 examples per class — that's the value of pretrained embeddings as features.
+
+With a more realistic 50-200 examples per class, accuracy on this kind of task usually climbs to 85-95%. The bottleneck isn't the embeddings, it's the training-set size.
+
+**Production angle:** for any text-classification task where you have **100-10,000 labelled examples per class**, embed + small classifier is the modern default. You only need to fine-tune the full transformer when you have 100K+ examples per class or a very specialised vocabulary.
+
+----- md cell 7 -----
+---
+
+## Experiment 2 — Multilingual embeddings
+
+Some sentence-transformer models are trained to put the SAME meaning in the SAME place regardless of language. So an English query can retrieve French / Spanish / German documents directly.
+
+Let's load `paraphrase-multilingual-MiniLM-L12-v2` and test.
+
+----- md cell 10 -----
+The model groups translations of the same idea together in vector space, regardless of language. An English query pulls French and Spanish products if they match in meaning. This is invaluable for global e-commerce — one search index, many languages.
+
+**Caveat:** multilingual models are larger (118M params here vs 22M for `all-MiniLM-L6-v2`) and slower. Only use them if you actually need cross-lingual retrieval.
+
+----- md cell 11 -----
+---
+
+## Experiment 3 — Tokenisation up close
+
+What does a sentence-transformer actually see when you call `.encode("blue summer dress")`? Tokens. Specifically, **subword tokens** from a 30K-token vocabulary.
+
+----- md cell 13 -----
+Observations:
+
+- Common words → one token each (`blue`, `summer`, `dress`)
+- Rarer words → split into subword pieces (`anti`+`##dis`+`##est`+`##ab`+`##lish`+`##ment`+`##arian`+`##ism`)
+- SKU-like strings → fragmented heavily, often confusingly
+- Unknown words → still encodable via subwords; the model never says "I don't know that word"
+
+**Why this matters for search:** if your product names contain SKUs, model numbers, or industry jargon, embeddings won't capture them well. That's another reason production systems hybridise with TF-IDF — TF-IDF preserves exact strings perfectly.
+
+----- md cell 14 -----
+---
+
+## Recap
+
+| Technique | Best for |
+|-----------|----------|
+| Embeddings as classifier features | Any text-classification task with 100-10K labelled examples |
+| Multilingual embeddings           | Global e-commerce, customer support across regions |
+| Tokenisation awareness            | Debugging surprising search behaviour; SKU / jargon handling |
+
+These three combined cover most of the embedding-related production work you'll encounter. The next lesson (L10) opens the transformer architecture itself — how does the model produce these embeddings in the first place?
+
+
+============================================================
+MARKDOWN GUIDE FILES
+============================================================
+
+##################################################
+# README.md
+##################################################
+# L09 — NLP, Embeddings & Semantic Search
+
+> **Module 3 · Machine Learning & GenAI · Lesson 9 of 10**
+
+## The story so far
+
+Sarah's catalogue auto-tagger from L08 is in production. Merchandisers are confirming the top-3 predictions, the data pipeline is collecting corrections, and the model is improving day by day. Marcus is happy.
+
+Then a complaint lands in his inbox from the customer-experience team:
+
+> *"A shopper typed 'blue summer dress' into our search bar. We have **ten** dresses that fit that description — and zero of them came up. Our search is keyword-only. The customer left."*
+
+Sarah opens the catalogue, runs a quick check, and confirms the problem: the most relevant dress is called "Lila Floral Sundress" — its description says **"lightweight floral frock"**, not "summer dress". Keyword search misses it. So do the others, each described with different words for the same concept.
+
+This is a **semantic search** problem. We need a model that understands that *frock*, *sundress*, and *dress* mean similar things, and that *floral* and *summer* are co-related concepts.
+
+The tool for the job is **word and sentence embeddings** — turning text into vectors so we can compute meaning-based similarity. By the end of L09 you will have shipped a working semantic search engine.
+
+## What you'll learn
+
+By the end of L09 you will be able to:
+
+1. **Explain why keyword search fails** on real product catalogues (synonyms, paraphrases, typos, intent).
+2. **Tokenise text** the way a modern model does, and understand the trade-offs of word vs subword tokens.
+3. **Reason about word vectors** — what a 384-dim sentence embedding actually represents, and how cosine similarity gives you meaning.
+4. **Use a pretrained sentence-transformer** (`all-MiniLM-L6-v2`) to embed an entire catalogue in seconds.
+5. **Build a working semantic search engine** with top-K retrieval, compare it head-to-head against TF-IDF, and ship it as a function.
+
+## Run in the cloud (no setup) — Google Colab
+
+No laptop GPU or local install needed — these notebooks run on Colab's free CPU (the pretrained model only does fast inference, not training). Each notebook installs `sentence-transformers` on first run and loads its data straight from GitHub, so there's nothing to upload.
+
+| Notebook | Open |
+|---|---|
+| 01 · Monday morning (pre-class) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/01_monday_morning.ipynb) |
+| 02 · Words to vectors | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/02_words_to_vectors.ipynb) |
+| 03 · Pretrained embeddings | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/03_pretrained_embeddings.ipynb) |
+| 04 · Semantic search engine | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/04_semantic_search.ipynb) |
+| Assignment · Recipe search | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/assignment.ipynb) |
+| Optional extensions | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing/blob/main/notebooks/optional_extensions.ipynb) |
+
+> Prefer a local install (VS Code + conda)? See [setup.md](setup.md). The notebooks detect whether they're local or on Colab and load data accordingly — the same file runs in both.
+
+## Phase 1 — Pre-class (≈ 30 min)
+
+- Watch the [lesson intro video](https://youtu.be/uworo8tadFQ) (~5 min)
+- Read [pre-class.md](pre-class.md)
+- Watch the linked Jay Alammar embeddings primer
+- Run [notebooks/01_monday_morning.ipynb](notebooks/01_monday_morning.ipynb) — feel the keyword-search failure mode firsthand
+
+## Phase 2 — In-class (≈ 90 min lecture + 90 min code-along)
+
+- Concept walkthrough: instructor uses the [**interactive key-concepts walkthrough →**](https://su-ntu-ctp.github.io/6m-data-3.9-Natural-Language-Processing/) (revisit any time)
+- **Short reference & review →** [**lesson.md**](./lesson.md) (overview, key takeaways, validation checklist, 7-question review, course map to L10)
+- Code-along notebooks (in order):
+  - [02_words_to_vectors.ipynb](notebooks/02_words_to_vectors.ipynb) — one-hot encoding, bag-of-words, the embedding intuition
+  - [03_pretrained_embeddings.ipynb](notebooks/03_pretrained_embeddings.ipynb) — `SentenceTransformer` + cosine similarity
+  - [04_semantic_search.ipynb](notebooks/04_semantic_search.ipynb) — build a search engine, beat TF-IDF
+
+## Phase 3 — Post-class (self-study, optional)
+
+- [assignment.ipynb](notebooks/assignment.ipynb) — Build a semantic search engine for a different corpus (news headlines)
+- [optional_extensions.ipynb](notebooks/optional_extensions.ipynb) — TF-IDF vs embeddings deep-dive, embeddings for classification, multilingual queries
+
+## Files
+
+| Path | Purpose |
+|------|---------|
+| `README.md`              | This file — orientation |
+| `setup.md`               | Environment install (`pip install sentence-transformers`) |
+| `pre-class.md`           | ~30-min self-study before class |
+| `lesson.md`              | Short reference: overview, takeaways, validation checklist, review Q&A, course map |
+| `reference.md`           | Glossary of 22 NLP/embedding terms |
+| `environment.yml`        | Conda env spec |
+| `docs/index.html`        | Interactive key-concepts walkthrough (GitHub Pages) |
+| `notebooks/`             | 4 in-class NBs + assignment + extensions + data |
+
+---
+
+**Bridge to L10:** Embeddings are the *representation*. But where do they come from? How does a model "understand" that *frock* and *dress* are related? The answer is **transformers and attention** — the architecture behind every modern NLP and GenAI model. L10 opens the black box.
+
+
+##################################################
+# lesson.md
+##################################################
+# Lesson — L09 NLP, Embeddings & Semantic Search
+
+> **Chapter 9 of the NorthStar Retail story.** *Sarah Chen · Customer Experience Analyst · January 2023.*
+> The L08 auto-tagger shipped on Friday. Monday morning, an angry email lands: a shopper typed *"blue summer dress"* into NorthStar's search bar. The catalogue has ten dresses that fit. None came up — the descriptions say *frock*, *sundress*, *gown*. Keyword search breaks on synonyms.
+> This lesson is how Sarah replaces it.
+
+This document is a **short reference** — the lesson itself is taught in the notebooks. Read it for orientation before class, then come back to it for the takeaways, the validation checklist, the review questions, and the course map.
+
+---
+
+## How L09 is taught
+
+| Stage | Where to go |
+|---|---|
+| **Pre-class** | `pre-class.md` + `notebooks/01_monday_morning.ipynb` |
+| **In-class — Part 1: Words as vectors** | `notebooks/02_words_to_vectors.ipynb` |
+| **In-class — Part 2: Pretrained sentence embeddings** | `notebooks/03_pretrained_embeddings.ipynb` |
+| **In-class — Part 3: Semantic search engine** | `notebooks/04_semantic_search.ipynb` |
+| **Self-study** | `notebooks/assignment.ipynb` + `notebooks/optional_extensions.ipynb` |
+| **Reference & review** | This document |
+
+The notebooks are the spine. Run them in order. Come back here for the consolidated takeaways and the review questions.
+
+---
+
+## Overview
+
+NorthStar's keyword search misses three of ten relevant dresses for the query *"blue summer dress"* — the descriptions use *frock*, *gown*, *sundress* instead, and no amount of stemming or stop-word stripping closes that gap because **the problem is semantic, not lexical**. By Friday Sarah will hold three new tools: a built-from-scratch understanding of **why one-hot and bag-of-words representations cannot express meaning**, hands-on use of **pretrained sentence-transformers** (`all-MiniLM-L6-v2`) that map text to 384-dim vectors where geometry encodes meaning, and a working **top-K semantic search engine** benchmarked head-to-head against TF-IDF on a labelled query set. The same retrieval pattern returns in L10 as the *R* in RAG.
+
+---
+
+## Key takeaways
+
+1. **Keyword search fails on synonyms because tokens are treated as identities, not meanings.** *Frock*, *gown*, and *sundress* are different tokens; to a keyword matcher they are as unrelated as *frock* and *spaceship*. Stemming and stop-words help marginally; the underlying limitation is fundamental.
+2. **One-hot vectors and bag-of-words are equidistant on synonyms.** Cosine similarity between any two distinct one-hot vectors is exactly 0. Bag-of-words inherits the same blindness — it only matches on shared content words.
+3. **An embedding is a dense vector where geometric distance encodes semantic distance.** Numbers in each dimension have no intrinsic meaning; what matters is that semantically similar inputs end up close. The distributional hypothesis (*you shall know a word by the company it keeps*) is the training signal.
+4. **Cosine similarity is a ranking signal, not a percentage.** Modern sentence-transformer cosines mostly live in `[0.2, 0.7]`, and the floor is **not** zero: with `all-MiniLM-L6-v2`, even unrelated pairs like *dress*/*spaceship* score ~0.25 — about the same as the *frock*/*dress* synonym. So a single pairwise cosine means little on its own; a 0.25 is **not** "25% similar" and must not be compared against an imagined 0.0 baseline. Read cosines as a *ranking within a query*, not a score out of 1.
+5. **Pretrained sentence-transformers are the default starting point — you do not train from scratch.** `all-MiniLM-L6-v2` (22M params, 384-dim output, ~80 MB) was trained on >1B sentence pairs. You call `.encode()` and store the result; the model does the heavy lifting.
+6. **Semantic search is two functions: embed-the-corpus-once + cosine-against-the-query.** No labels, no fine-tuning, no training loop. Embed the catalogue offline (seconds per 1000 products), embed the query at request time, return top-K by cosine similarity. The infrastructure is trivial.
+7. **Evaluate retrieval with top-1 and top-K accuracy against a labelled ground-truth set.** On NorthStar's 8-query benchmark, keyword search hits 5/8 top-1, TF-IDF hits 4/8, semantic search hits 6/8 top-1 and 7/8 top-5. Without a ground-truth set you have no way to know if a change made search better or worse.
+8. **Production search is hybrid, not embeddings-only.** TF-IDF beats embeddings on exact-token queries (product codes, brand names). Structured filters (category, price, colour) handle hard constraints. The standard pattern is: union of TF-IDF + semantic candidates → structured filters → re-rank by score blend, popularity, recency.
+
+---
+
+## Validating a semantic-search system before shipping — a checklist
+
+Before you replace keyword search with embeddings in production, run it through this three-step check:
+
+1. **Do you have a labelled ground-truth query set?** A handful of (query, expected-product) pairs is the minimum. Without it you cannot measure top-1 or top-K accuracy, and "it feels better" is not an answer Marcus will accept. NorthStar's 8-query benchmark in `ground_truth.json` is the pattern — small, hand-curated, representative of real customer language.
+2. **Did you measure precision@k AND inspect the failures?** Headline accuracy hides failure modes. The 'blue summer dress' miss in NB 03 — where the model returned a *linen shirt* at rank 1 — is exactly the kind of weighting bug that a top-1 number alone would not surface. Always read the actual top-5 for the queries you got wrong.
+3. **Have you planned for the exact-match and stale-embedding cases?** Product codes ("P0042") and brand names need exact matching; route them to TF-IDF, not embeddings. When merchandisers rewrite a description, the cached embedding goes stale until re-encoded; schedule nightly re-embedding of changed rows.
+
+Skip any of these and you ship a system that *feels* smarter but quietly regresses on the queries that pay the bills.
+
+---
+
+## Check your understanding
+
+Work through these after finishing the three Part notebooks. Attempt each question on your own first.
+
+### Part 1 — Words as vectors
+
+**Q1 — Why can't bag-of-words match synonyms?** A shopper types *"blue summer dress"*. The catalogue's Lila Floral Sundress is described as *"lightweight floral frock perfect for warm summer days"*. Explain in one sentence why a bag-of-words representation cannot rank this product highly.
+
+> **Sample answer:** Bag-of-words represents each document as a vector of word counts indexed by a fixed vocabulary; *frock* and *dress* occupy different indices, so the query vector and the product vector share only the "summer" dimension and the cosine is dominated by that single overlap. The representation has no notion that *frock* and *dress* refer to the same thing — they are as orthogonal as *frock* and *spaceship*.
+
+**Q2 — One-hot equidistance.** In NB 02 the cosine between `onehot("frock")` and `onehot("dress")` was 0.000, identical to the cosine between `onehot("frock")` and `onehot("spaceship")`. Why?
+
+> **Sample answer:** A one-hot vector is all zeros except a single 1 at the word's index. The dot product of two one-hot vectors for *distinct* words is zero (they have no overlapping non-zero positions), so the cosine is zero regardless of how semantically related the words are. The representation captures identity, not meaning — every pair of distinct words is equidistant.
+
+### Part 2 — Pretrained sentence embeddings
+
+**Q3 — Read the cosine.** `all-MiniLM-L6-v2` returns cosine(*frock*, *dress*) = 0.249. A colleague says: "Only 25% similar — that's not very high." Are they reading it correctly?
+
+> **Sample answer:** No. Sentence-transformer cosines for this model mostly live in the range [0.2, 0.7], and the floor is not 0 — with `all-MiniLM-L6-v2` even unrelated pairs (e.g. *dress*/*spaceship* ≈ 0.257) score around 0.25, roughly the same as the *frock*/*dress* synonym (0.249). So a 0.25 is **not** "25% similar", and a single pairwise cosine tells you very little by itself. The right way to use cosines is to *rank* candidates within a query against the whole corpus — where the relevant items aggregate enough signal to rise to the top — not to read one pair as a percentage out of 100%.
+
+**Q4 — When is averaging word vectors not good enough?** Why does NB 03 use a sentence-transformer rather than just averaging word embeddings across the sentence?
+
+> **Sample answer:** Averaging word vectors throws away word order and uses uniform weights, so *"dog bites man"* and *"man bites dog"* get identical embeddings, and high-information words are diluted by stop-words. A sentence-transformer is trained end-to-end to produce a single vector that captures the meaning of the whole sentence, including word order and emphasis. Averaging is a reasonable cheap baseline; the transformer is the default for any real application.
+
+### Part 3 — Semantic search engine
+
+**Q5 — Precision@k vs top-1.** On NorthStar's 8-query benchmark, the semantic engine gets top-1 = 6/8 but top-5 = 7/8. Which metric should Sarah report to Marcus, and what does each tell you?
+
+> **Sample answer:** Report both. Top-1 accuracy is the strict measure — how often the most relevant product comes up first — and is the metric the customer experiences when they only look at the top result. Top-5 is the more forgiving measure that reflects the realistic browsing pattern of scrolling through a handful of options; it also tells you whether the right product is at least *on the page*. The gap between them (7/8 minus 6/8 here) is the headroom that re-ranking with popularity or structured filters could recover without a better embedding model.
+
+**Q6 — When does TF-IDF beat embeddings?** Give one query type where TF-IDF will reliably outperform semantic search, and one where it will reliably lose.
+
+> **Sample answer:** TF-IDF wins on exact-token queries: product codes ("P0042"), brand names, SKUs, exact product titles ("Marina Wrap Dress"). The literal-token match is precisely what TF-IDF is built for. TF-IDF loses on synonym-heavy or paraphrased queries ("warm winter jumper" when the catalogue calls it a *cable knit pullover*, or "blue summer dress" when descriptions say *frock*), because it has no notion that those tokens refer to the same thing. Production search uses both and merges the candidate lists.
+
+**Q7 — Stale embeddings.** A merchandiser rewrites the description of three products on Wednesday afternoon. What goes wrong if you do nothing, and what is the standard fix?
+
+> **Sample answer:** The cached embeddings for those three products were computed from the *old* description text; until you re-encode them, semantic search ranks them against query embeddings using a representation that no longer matches what's on the product page. Customers can search using language from the new description and never find the product, or worse, find it for the wrong reasons. The standard fix is a nightly re-embedding job that re-encodes any product whose `updated_at` timestamp changed in the last 24 hours, plus a small near-real-time job for newly added products.
+
+---
+
+## Where L09 fits in the course
+
+L09 is the last "build a focused ML system" lesson — L10 opens the black box of the architecture that produces these embeddings and uses retrieval as a component of a larger system.
+
+| Lesson | How L09 shows up |
+|---|---|
+| **L10 — Transformers & GenAI** | The sentence-transformer in NB 03 is a transformer encoder — L10 explains what attention is doing inside it. The semantic search engine from NB 04 returns directly as the **R in RAG (Retrieval-Augmented Generation)**: embed a knowledge base, retrieve top-K by cosine, feed the chunks into an LLM prompt. The evaluation discipline (ground-truth queries, precision@k) carries forward as the only honest way to measure an LLM pipeline. |
+
+---
+
+> *"OK, the search engine works. But how does that little model actually understand that *frock* and *dress* are similar? And can we use the same kind of model to build a chat assistant that answers customer questions about our products?"* — Marcus, after Sarah's Friday demo.
+>
+> Those questions — *what's inside the embedding model?* and *how do we build a chat assistant on top of it?* — are the engine of **L10 (Transformers & GenAI)**.
+
+
+##################################################
+# mcq.md
+##################################################
+# L09 NLP, Embeddings & Semantic Search — Multiple Choice Questions
+
+Test your understanding of the key concepts. The correct answer is indicated below each question.
+
+---
+
+**Q1. A shopper searches "blue summer dress" but the matching product is described as a "lightweight floral frock." Why does keyword search fail to return it?**
+
+- A. The query has too many stop-words
+- B. Keyword search treats tokens as identities, not meanings — *frock* and *dress* are different tokens with no relationship
+- C. The product description is too long
+- D. Stemming converts *dress* into an unsearchable root
+
+**✅ Correct answer: B**
+
+---
+
+**Q2. What is the cosine similarity between two distinct one-hot vectors (e.g. `onehot("frock")` and `onehot("dress")`)?**
+
+- A. Exactly 1.0
+- B. Around 0.25
+- C. Exactly 0.0
+- D. It depends on how semantically related the words are
+
+**✅ Correct answer: C** — One-hot vectors for distinct words share no non-zero positions, so their dot product (and cosine) is exactly 0 regardless of meaning.
+
+---
+
+**Q3. What best defines an embedding?**
+
+- A. A sparse vector of word counts indexed by a fixed vocabulary
+- B. A dense vector where geometric distance encodes semantic distance
+- C. A one-hot vector with a single 1 at the word's index
+- D. A percentage score of how similar two words are
+
+**✅ Correct answer: B**
+
+---
+
+**Q4. Which principle provides the training signal for embeddings — that a word's meaning comes from the contexts it appears in?**
+
+- A. The bag-of-words assumption
+- B. The orthogonality principle
+- C. The distributional hypothesis ("you shall know a word by the company it keeps")
+- D. The TF-IDF weighting rule
+
+**✅ Correct answer: C**
+
+---
+
+**Q5. With `all-MiniLM-L6-v2`, cosine(*frock*, *dress*) = 0.249. A colleague says "only 25% similar — not very high." Are they right?**
+
+- A. Yes, 0.249 means 25% similar
+- B. Yes, anything below 0.5 is a poor match
+- C. No — cosine is a ranking signal, not a percentage; even unrelated pairs score ~0.25, so a single pairwise value means little on its own
+- D. No, because cosine values are always negative
+
+**✅ Correct answer: C**
+
+---
+
+**Q6. Why does NB 03 use a pretrained sentence-transformer rather than averaging individual word vectors across a sentence?**
+
+- A. Averaging is computationally impossible
+- B. Averaging throws away word order and dilutes high-information words; a sentence-transformer captures the whole sentence's meaning
+- C. Word vectors cannot be averaged mathematically
+- D. Sentence-transformers are always faster than averaging
+
+**✅ Correct answer: B** — e.g. averaging gives "dog bites man" and "man bites dog" identical embeddings.
+
+---
+
+**Q7. Which statement about pretrained sentence-transformers like `all-MiniLM-L6-v2` is correct?**
+
+- A. You must train them from scratch on your own data
+- B. They require labels and a fine-tuning loop before use
+- C. They are the default starting point — you call `.encode()` and store the result; the model does the heavy lifting
+- D. They output sparse one-hot vectors
+
+**✅ Correct answer: C** — 22M params, 384-dim output, trained on >1B sentence pairs.
+
+---
+
+**Q8. What are the two core functions of a semantic search engine?**
+
+- A. Train a model + fine-tune on labels
+- B. Embed the corpus once (offline) + cosine-against-the-query (at request time), returning top-K
+- C. Stem all words + remove stop-words
+- D. Count token frequencies + apply TF-IDF weighting
+
+**✅ Correct answer: B** — No labels, no fine-tuning, no training loop.
+
+---
+
+**Q9. On NorthStar's 8-query benchmark, the semantic engine scored top-1 = 6/8 and top-5 = 7/8. How should these metrics be interpreted?**
+
+- A. Top-1 measures the strict "best result first" experience; top-5 reflects realistic browsing — report both, and the gap is recoverable headroom via re-ranking
+- B. Only top-1 matters; top-5 is meaningless
+- C. The system failed because neither metric is 8/8
+- D. Top-5 should always be lower than top-1
+
+**✅ Correct answer: A**
+
+---
+
+**Q10. Why is production search hybrid (TF-IDF + embeddings + filters) rather than embeddings-only?**
+
+- A. Embeddings cannot be stored in a database
+- B. TF-IDF wins on exact-token queries (product codes, brand names, SKUs) where embeddings are weak, and structured filters enforce hard constraints like category and price
+- C. Embeddings are too slow to compute at any scale
+- D. TF-IDF always outperforms embeddings on every query type
+
+**✅ Correct answer: B** — Standard pattern: union of TF-IDF + semantic candidates → structured filters → re-rank by score blend, popularity, recency.
+
+---
+
+### Bonus concept: stale embeddings
+
+When a merchandiser rewrites a product description, its cached embedding is computed from the *old* text and goes stale until re-encoded — the standard fix is a nightly re-embedding job for any row whose `updated_at` changed in the last 24 hours.
+
+
+##################################################
+# pre-class.md
+##################################################
+# Before Class — L09 — NLP & Embeddings
+
+**Estimated time: ~30 minutes.** Complete this before class.
+
+This is the simplest version of "show up prepared": watch a short intro, run one notebook, answer a few questions. You'll come to class having seen the idea in action.
+
+| Step | Time | What you do |
+|---|---|---|
+| **0. Watch** | ~5 min  | Watch the [lesson intro video](https://youtu.be/uworo8tadFQ) |
+| **1. Try it** | ~20 min | Open and run `notebooks/01_monday_morning.ipynb` |
+| **2. Reflect** | ~5 min  | Three short questions below |
+
+---
+
+## Step 0 — Watch the intro video (~5 min)
+
+▶️ **[L09 The Geometry of Meaning](https://youtu.be/uworo8tadFQ)**
+
+A short orientation to the day: why keyword search fails on real catalogues, and how embeddings let Sarah build meaning-based search. Watch it before opening the notebook.
+
+---
+
+## Step 1 — Try it (~20 min)
+
+Open **`notebooks/01_monday_morning.ipynb`** in VS Code with the `dsai-m3` kernel. Run every cell top to bottom. Read the markdown between cells. Don't skip any cell.
+
+A customer types *"blue summer dress"* into NorthStar's search bar. We have ten dresses that fit — none of them came up. The notebook walks Sarah through keyword search, watches it fail on synonyms (*frock* ≠ *dress*), and motivates the embedding-based fix you'll see in class.
+
+If this is your first time running a notebook in this repo, see [setup.md](./setup.md) once — you only need to do this for the first lesson.
+
+---
+
+## Step 2 — Quick reflection (~5 min)
+
+Write a sentence or two for each. You can scribble in a notebook, in a journal, or just hold the answer in your head — what matters is that you *tried*.
+
+**Q1. Five ways to describe a summer dress without using the word *dress*.**
+
+Write three of them. (This is exactly the synonym problem keyword search can't handle.)
+
+**Q2. Stemming and stop-words help — but only a bit.**
+
+Why can't lexical tricks (stem *dresses* → *dress*) solve the *frock* → *dress* gap?
+
+**Q3. Search a real site for *"comfortable office shoes"*.**
+
+Does the search seem to know what you mean, or is it just keyword-matching? How can you tell?
+
+---
+
+## Bring to class
+
+- Your answer to Q2.
+- One search problem from your own work or life where keyword search frustrates you.
+
+---
+
+**Want to go deeper before class?** See **[reference.md](./reference.md) → *Further reading & watching*** at the bottom — videos and recommended readings that used to live in this guide.
+
+**Ran out of time?** Doing just Step 1 (running the notebook) is enough. The class builds on having felt what the lesson teaches; the reflection questions get re-asked live.
+
+
+##################################################
+# reference.md
+##################################################
+# L09 Reference · Glossary
+
+| Term | Definition |
+|------|------------|
+| **Token**             | A unit of text fed to a model — could be a whole word, a subword piece, a character, or a special symbol. |
+| **Tokeniser**         | The component that splits raw text into tokens. Modern ones use BPE / WordPiece / SentencePiece (subword). |
+| **Subword tokenisation** | Splitting words into smaller pieces ("running" → "run" + "##ning") so the model has a fixed vocabulary but can still handle novel words. |
+| **Vocabulary**        | The fixed set of tokens a model knows. Typical size: 30K-100K. |
+| **One-hot encoding**  | Representing a token as a vector of zeros with a single 1 at its vocab index. Sparse, large, captures identity not meaning. |
+| **Embedding**         | A dense, low-dimensional (50-1000 D) vector representation of a token or sentence, learned from data. Similar meaning → similar vector. |
+| **Word embedding**    | An embedding for a single word/token (Word2Vec, GloVe). One vector per word. |
+| **Sentence embedding**| An embedding for a whole sentence/paragraph. Captures the meaning of the entire string. |
+| **Distributional hypothesis** | Firth's 1957 idea: words appearing in similar contexts have similar meanings. The basis for all learned embeddings. |
+| **Word2Vec**          | A 2013 family of algorithms (Mikolov et al.) for learning word embeddings from context windows. |
+| **GloVe**             | Stanford's 2014 word-embedding method based on global word co-occurrence statistics. |
+| **BERT**              | Google's 2018 transformer that produces *contextual* word embeddings — the embedding for "bank" depends on the surrounding sentence. |
+| **Sentence-Transformer** | A model fine-tuned to produce sentence-level embeddings (Reimers & Gurevych, 2019). `all-MiniLM-L6-v2` is a small, fast example. |
+| **Cosine similarity** | A measure of how similar two vectors are, based on the angle between them: `dot(a, b) / (||a|| * ||b||)`. Range: [-1, 1]. |
+| **TF-IDF**            | Term-frequency × inverse-document-frequency. Classical text-retrieval scoring. Keyword-based. |
+| **Bag-of-words (BoW)** | Representing a document as a sparse count vector over the vocabulary. Loses word order; loses meaning. |
+| **Semantic search**   | Retrieval by meaning rather than keyword match. Built on sentence embeddings + cosine similarity. |
+| **Top-K retrieval**   | Returning the K most similar items to a query, ranked by similarity score. |
+| **Hybrid retrieval**  | Combining lexical (TF-IDF / BM25) and semantic (embedding) scoring. Standard in modern production search. |
+| **Re-ranking**        | A second pass that re-orders top-K results using additional signals (popularity, recency, price, user history). |
+| **Vector database**   | A specialised store optimised for fast nearest-neighbour search over millions of embeddings (FAISS, Pinecone, Weaviate, etc.). |
+| **Hugging Face Hub**  | The standard public registry for pretrained NLP models. `model = SentenceTransformer("all-MiniLM-L6-v2")` downloads from here. |
+
+---
+
+## Further reading & watching
+
+Optional resources that go deeper than what we cover in class. Pick what interests you; nothing here is required.
+
+### Reading
+
+- **[The Illustrated Word2Vec](https://jalammar.github.io/illustrated-word2vec/)** — Jay Alammar — *Read the first half (up to and including "Word2Vec Training"). The clearest explanation of *why* embeddings work.*
+- [Summary of the Tokenisers](https://huggingface.co/docs/transformers/tokenizer_summary) — Hugging Face docs — *Skim the BPE / WordPiece / SentencePiece sections to see how modern models split text*
+
+
+##################################################
+# setup.md
+##################################################
+# Setup — L09 — NLP, Embeddings & Semantic Search
+
+> One-time environment setup. **If you already set up the `dsai-m3` environment for L01–L08, you're almost done — L09 needs `sentence-transformers >= 3.0`. If you created the environment from any lesson's `environment.yml`, it's already included; otherwise run `pip install sentence-transformers` once inside the activated environment. Then just clone this repo and pick the `dsai-m3` kernel.**
+
+This guide gets you from "fresh machine" to "running the L09 notebooks". It takes about 15 minutes the first time.
+
+---
+
+## 1. Prerequisites
+
+You need:
+
+- **Git** — to clone this repository
+- **Miniconda** (or Anaconda) — to create the Python environment. [Install Miniconda →](https://docs.conda.io/projects/miniconda/en/latest/)
+- **VS Code** — with the Python and Jupyter extensions. [Download VS Code →](https://code.visualstudio.com/)
+
+Check git and conda are working:
+
+```bash
+git --version
+conda --version
+```
+
+---
+
+## 2. Clone this repository
+
+```bash
+git clone https://github.com/su-ntu-ctp/6m-data-3.9-Natural-Language-Processing.git
+cd 6m-data-3.9-Natural-Language-Processing
+```
+
+> **No local install wanted?** You can skip all of this and run every notebook in Google Colab instead — see the "Run in the cloud" section in [README.md](./README.md).
+
+---
+
+## 3. Create the conda environment
+
+From inside the `6m-data-3.9-Natural-Language-Processing` folder:
+
+```bash
+conda env create -f environment.yml
+```
+
+This creates an environment called **`dsai-m3`** with Python, pandas, numpy, matplotlib, scikit-learn, sentence-transformers, and Jupyter. It takes 5–10 minutes.
+
+> **Already have a `dsai-m3` environment from L01–L08?** You don't need to recreate it. Just confirm sentence-transformers is present:
+>
+> ```bash
+> conda activate dsai-m3
+> python -c "import sentence_transformers; print(sentence_transformers.__version__)"
+> ```
+>
+> If that errors, run `pip install "sentence-transformers>=3.0"` once.
+
+Activate the environment:
+
+```bash
+conda activate dsai-m3
+```
+
+---
+
+## 4. First-run downloads (automatic)
+
+- **Data (included in the repo):** `notebooks/data/northstar_catalogue.csv` (76 products, ~15 KB) and `notebooks/data/recipes.csv` (30 recipes, ~6 KB).
+- **Models:** first run downloads `all-MiniLM-L6-v2` (~80 MB) from Hugging Face into `~/.cache/huggingface/`. `optional_extensions.ipynb` additionally downloads `paraphrase-multilingual-MiniLM-L12-v2` (~470 MB).
+
+Everything in L09 runs comfortably on CPU — no GPU needed.
+
+---
+
+## 5. Open the project in VS Code
+
+```bash
+code .
+```
+
+When VS Code opens, it may prompt you to install recommended extensions (Python, Jupyter). Accept.
+
+---
+
+## 6. Select the `dsai-m3` kernel
+
+1. Open `notebooks/01_monday_morning.ipynb`.
+2. In the top-right of the notebook, click **Select Kernel**.
+3. Choose **Python Environments → dsai-m3**.
+
+If `dsai-m3` doesn't appear, restart VS Code and try again. If it still doesn't appear, run `conda env list` in a terminal to confirm the environment exists.
+
+---
+
+## 7. Smoke test
+
+In `01_monday_morning.ipynb`, run the first cell (the imports). If it completes without errors, you're set.
+
+If you see `ModuleNotFoundError`, the wrong kernel is selected — go back to Step 6. If only `sentence_transformers` is missing, see Step 3's note.
+
+---
+
+## Troubleshooting
+
+**`conda: command not found`** → Miniconda isn't installed or isn't on your PATH. Reinstall Miniconda and restart your terminal.
+
+**`environment.yml` solver hangs** → Try `conda env create -f environment.yml --solver=libmamba`. If that still hangs, delete the env (`conda env remove -n dsai-m3`) and retry.
+
+**Kernel doesn't appear in VS Code** → Run `python -m ipykernel install --user --name dsai-m3` from inside the activated environment.
+
+**Hugging Face download fails** → Check your network, then re-run the cell — downloads resume from the cache.
+
+---
+
+Once setup is done, head back to **[README.md](./README.md)** → Phase 1.
+
